@@ -1,8 +1,8 @@
-import bcrypt
-import json
 import jwt
+import json
+import bcrypt
 
-from decorator    import login_check, key_error_killer
+from decorators   import login_check
 from django.http  import JsonResponse
 from django.views import View
 
@@ -11,7 +11,6 @@ from .models      import User, Follow
 
 # 회원가입
 class SignUpView(View):
-    @key_error_killer
     def post(self, request): 
         data            = json.loads(request.body)
         email           = data.get('email')
@@ -105,4 +104,3 @@ class FollowView(View):
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
         except User.DoesNotExist :
             return JsonResponse({'message':'해당하는 유저가 없습니다.'}, status=400)
-

@@ -1,47 +1,44 @@
 from django.db import models
 
-# Create your models here.
+
 class Post(models.Model):
-    user      = models.ForeignKey('users.User', on_delete=models.CASCADE)
-    pub_date  = models.DateTimeField(auto_now_add=True)
-    likes     = models.IntegerField(default=0)
+    user_id    = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    content    = models.CharField(max_length=3000, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    like_count = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'posts'
 
-class Image(models.Model):
-    post  = models.ForeignKey('Post', on_delete=models.CASCADE)
-    image = models.URLField(max_length=2100)
+class PostAttachFiles(models.Model):
+    post_id   = models.ForeignKey('Post', on_delete=models.CASCADE)
+    file_type = models.CharField(max_length=200)
+    path      = models.URLField(max_length=2000)
 
     class Meta:
-        db_table = 'images'
+        db_table = 'post_attach_files'
 
 class Comment(models.Model):
-    post     = models.ForeignKey('Post', on_delete=models.CASCADE)
-    user     = models.ForeignKey('users.User', on_delete=models.CASCADE)
-    content  = models.CharField(max_length=10000)
-    pub_date = models.DateTimeField(auto_now_add=True)
+    post_id    = models.ForeignKey('Post', on_delete=models.CASCADE)
+    user_id    = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    comment_id = models.ForeignKey('Comment', on_delete=models.CASCADE, null=True)
+    content    = models.CharField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         db_table = 'comments'
 
 class Like(models.Model):
-    post = models.ForeignKey('Post', on_delete=models.CASCADE)
-    user = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    post_id      = models.ForeignKey('Post', on_delete=models.CASCADE, null=True)
+    user_id      = models.ForeignKey('users.User', on_delete=models.CASCADE)
+    comment_id   = models.ForeignKey('Comment', on_delete=models.CASCADE, null=True)
 
     class Meta:
         db_table = 'likes'
 
-class Recomment(models.Model):
-    post     = models.ForeignKey('Post', on_delete=models.CASCADE)
-    comment  = models.ForeignKey('Comment', on_delete=models.CASCADE)
-    user     = models.ForeignKey('users.User', on_delete=models.CASCADE)
-    content  = models.CharField(max_length=10000)
-    pub_date = models.DateTimeField(auto_now_add=True)
+class PostRead(models.Model):
+    post_id = models.ForeignKey('Post', on_delete=models.CASCADE)
+    user_id = models.ForeignKey('users.User', on_delete=models.CASCADE)
 
     class Meta:
-        db_table = 'recomments'
-
-
-
-
+        db_table = 'post_reads'
