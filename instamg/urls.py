@@ -19,5 +19,7 @@ from django.urls import path, include
 urlpatterns = [
     path('user', include('users.urls')),
     path('post', include('posts.urls')),
+    path('story', include('stories.urls')),
+    path('dm', include('direct_messages.urls'))
 
 ]
