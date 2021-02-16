@@ -51,8 +51,6 @@ class SignInView(View):
                     return JsonResponse({'token':token}, status=200)
                 else:
                      return JsonResponse({'message':'비밀반호 오류'}, status=401)
-            else:
-                return JsonResponse({'message':'KEY_ERROR'}, status=400)
 
             if data.get('name') is not None:
                 name           = data["name"]
@@ -63,8 +61,6 @@ class SignInView(View):
                     return JsonResponse({'token':token}, status=200)
                 else:
                      return JsonResponse({'message':'비밀반호 오류'}, status=401)
-            else:
-                return JsonResponse({'message':'KEY_ERROR'}, status=400)
 
             if data.get('phone') is not None:
                 phone          = data["phone"]
@@ -75,8 +71,6 @@ class SignInView(View):
                     return JsonResponse({'token':token}, status=200)
                 else:
                      return JsonResponse({'message':'비밀반호 오류'}, status=401)
-            else:
-                return JsonResponse({'message':'KEY_ERROR'}, status=400)
 
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
