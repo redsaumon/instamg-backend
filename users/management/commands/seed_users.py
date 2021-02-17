@@ -22,8 +22,14 @@ class Command(BaseCommand):
         fake    = Faker()
         seeder  = Seed.seeder()
 
+        def name_generator():
+            for i in range(number):
+                account = fake.first_name()
+                if not User.objects.filter(account=account).exists():
+                    yield account
+
         seeder.add_entity(User, number, {
-            'account'            : lambda x : fake.first_name(),
+            'account'         : lambda x : random.choice([account for account in name_generator()]),
             'password'        : bcrypt.hashpw('testtest'.encode(), bcrypt.gensalt()).decode(),
             'phone'           : lambda x : fake.phone_number(),
             'email'           : lambda x : fake.email(),

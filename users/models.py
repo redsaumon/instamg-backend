@@ -2,9 +2,9 @@ from django.db import models
 
 
 class User(models.Model):
-    account         = models.CharField(max_length=30)
+    account         = models.CharField(max_length=100)
     password        = models.CharField(max_length=2000)
-    phone           = models.CharField(max_length=40, null=True)
+    phone           = models.CharField(max_length=100, null=True)
     email           = models.EmailField(max_length=130, null=True)
     profile_photo   = models.URLField(max_length=2000, null=True)
     profile_message = models.CharField(max_length=5000, null=True)
