@@ -1,8 +1,8 @@
 from django.urls import path
-# from .views      import PostView, LikeView, PostDeleteView, PostUpdateView, CommentView, CommentDeleteView, RecommentView
+from .views      import PostView
 
 urlpatterns = [
-    # path('' ,PostView.as_view()),
+    path('' ,PostView.as_view())
     # path('/like/<int:post_id>', LikeView.as_view()),
     # path('/delete/<int:post_id>', PostDeleteView.as_view()),
     # path('/update/<int:post_id>', PostUpdateView.as_view()),

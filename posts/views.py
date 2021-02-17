@@ -5,8 +5,34 @@ from django.http      import JsonResponse
 
 from users.models      import User
 from decorators        import login_check
-# from .models           import Post, Image, Comment, Like, Recomment
+from .models           import Post, PostAttachFiles, Comment, Like, PostRead
 
+class PostView(View):
+    @login_check
+    def post(self, request):
+        try:
+            data = json.loads(request.POST['json'])
+            user = request.user
+            path = request.FILES['path']
+            video = ['m4v', 'avi','mpg','mp4', 'webm']
+            image = ['jpg', 'gif', 'bmp', 'png', 'jpeg']
+    
+            Post.objects.create(
+                user_id = user,
+                content = data['content']
+            )
+            if str(path).split('.')[-1] in video:
+                file_type = "video"
+            else:
+                file_type = "image"
+            PostAttachFiles.objects.create(
+                post_id = Post.objects.last(),
+                file_type = file_type,
+                path = path
+            )
+            return JsonResponse({'message':'SUCCESS'}, status=201)
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
 # # 게시물 등록, 전체 조회
 # class PostView(View):
 #     @login_check
