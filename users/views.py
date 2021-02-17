@@ -14,7 +14,6 @@ class SignUpView(View):
     def post(self, request): 
         data            = json.loads(request.body)
         email           = data.get('email')
-        name            = data.get('name')
         phone           = data.get('phone')
         password        = data['password'].encode('utf-8')
         hashed_password = bcrypt.hashpw(password, bcrypt.gensalt()).decode('utf-8')
@@ -28,7 +27,7 @@ class SignUpView(View):
         if len(password) < 8:
             return JsonResponse({'message': '비밀번호 길이는 8글자 이상'}, status=400)
         User(
-            name     = name,
+            account  = data['account'],
             password = hashed_password,
             phone    = phone,
             email    = email).save()
@@ -52,9 +51,9 @@ class SignInView(View):
                 else:
                      return JsonResponse({'message':'비밀반호 오류'}, status=401)
 
-            if data.get('name') is not None:
-                name           = data["name"]
-                user           = User.objects.get(name=data["name"])
+            if data.get('account') is not None:
+                account        = data["account"]
+                user           = User.objects.get(account=data["account"])
                 password_check = user.password
                 if bcrypt.checkpw(password.encode('utf-8'), password_check.encode('utf-8')):
                     token = jwt.encode({'id': user.id}, SECRET, algorithm='HS256')
