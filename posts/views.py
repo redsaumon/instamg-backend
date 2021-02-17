@@ -72,22 +72,22 @@ class PostView(View):
 
 #         return JsonResponse({'posts':posts_list}, status=200)
 
-# # 게시물 삭제
-# class PostDeleteView(View):    
-#     @login_check
-#     def delete(self, request, post_id):
-#         try:
-#             data = json.loads(request.body)
-#             post = Post.objects.get(id=post_id)
-#             user = request.user
+# 게시물 삭제
+class PostDeleteView(View):    
+    @login_check
+    def delete(self, request, post_id):
+        try:
+            post = Post.objects.get(id=post_id)
+            post_attach_files = post.postattachfiles_set.all()
 
-#             if post.user.id == user.id:
-#                 post.delete()
-#                 return JsonResponse({'message':'게시물 삭제 완료'}, status=200)
-#             else:
-#                 return JsonResponse({'message':'권한이 없습니다.'}, status=403)
-#         except Post.DoesNotExist:
-#             return JsonResponse({"message":'해당하는 게시물이 없습니다.'}, status=400)
+            if post.user_id.id == request.user.id:
+                post_attach_files.delete()
+                post.delete()
+                return JsonResponse({'message':'SUCCESS'}, status=200)
+            else:
+                return JsonResponse({'message':'NO_PERMISSION'}, status=403)
+        except Post.DoesNotExist:
+            return JsonResponse({"message":'POST_DOES_NOT_EXIST'}, status=400)
 
 # # 게시물 수정
 # class PostUpdateView(View):
