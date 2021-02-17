@@ -23,7 +23,7 @@ class Command(BaseCommand):
         seeder  = Seed.seeder()
 
         seeder.add_entity(User, number, {
-            'name'            : lambda x : fake.first_name(),
+            'account'            : lambda x : fake.first_name(),
             'password'        : bcrypt.hashpw('testtest'.encode(), bcrypt.gensalt()).decode(),
             'phone'           : lambda x : fake.phone_number(),
             'email'           : lambda x : fake.email(),

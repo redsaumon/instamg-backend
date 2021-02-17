@@ -107,7 +107,7 @@ from decorators        import login_check
        
 #     def get(self, request, post_id): # post 출력 따로 comment 출력 따로..?
 #         post     = Post.objects.get(id=post_id)
-#         user     = post.user.name
+#         user     = post.user.account
 #         comments = post.comment_set.all()
 #         pub_date = post.pub_date
 

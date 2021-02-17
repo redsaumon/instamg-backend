@@ -4,6 +4,7 @@ from django.db    import models
 class Story(models.Model):
     user_id       = models.ForeignKey('users.User', on_delete=models.CASCADE)
     story_profile = models.BooleanField(default=0)
+    title         = models.CharField(max_length=100, default=None)
     created_at    = models.DateTimeField(auto_now_add=True)
 
     class Meta:
