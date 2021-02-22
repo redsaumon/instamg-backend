@@ -1,10 +1,12 @@
-from django.db    import models
+from django.db           import models
+from imagekit.models     import ProcessedImageField
+from imagekit.processors import ResizeToFit
 
 
 class Story(models.Model):
     user_id       = models.ForeignKey('users.User', on_delete=models.CASCADE)
     story_profile = models.BooleanField(default=0)
-    title         = models.CharField(max_length=100, default=None)
+    title         = models.CharField(max_length=200, null=True)
     created_at    = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -12,9 +14,14 @@ class Story(models.Model):
 
 
 class StoryAttachFiles(models.Model):
-    story_id  = models.ForeignKey('Story', on_delete=models.CASCADE)
-    file_type = models.CharField(max_length=2000)
-    path      = models.CharField(max_length=1024)
+    story_id       = models.ForeignKey('Story', on_delete=models.CASCADE, related_name='story_attach_files')
+    file_type      = models.CharField(max_length=100)
+    path           = models.ImageField(upload_to='files/%Y%m%d')
+    thumbnail_path = ProcessedImageField(
+        upload_to='thumbnail',
+        processors=[ResizeToFit(width=614, upscale=False)],
+        options={'quality': 100}
+    )
 
     class Meta:
         db_table = 'story_attach_files'

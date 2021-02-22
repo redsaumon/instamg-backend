@@ -22,13 +22,15 @@ class StoryView(View):
                 file_type = 'image'
 
             Story(
-                user_id = request.user
+                user_id = request.user,
+                title   = None
             ).save()
 
             StoryAttachFiles(
-                story_id  = Story.objects.last(),
-                file_type = file_type,
-                path      = request.FILES['path']
+                story_id       = Story.objects.last(),
+                file_type      = file_type,
+                path           = request.FILES['path'],
+                thumbnail_path = request.FILES['path']
             ).save()
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
