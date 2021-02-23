@@ -95,8 +95,9 @@ class FollowView(View):
             
             if Follow.objects.filter(followed_user_id=user_id, follower_user_id=follower).exists(): # unfollow
                 Follow.objects.filter(followed_user_id=user_id, follower_user_id=follower).delete()
-            else:
-                Follow.objects.create(followed_user_id=user, follower_user_id=follower)
+                return JsonResponse({'message':'SUCCESS'}, status=200)
+         
+            Follow.objects.create(followed_user_id=user, follower_user_id=follower)
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)

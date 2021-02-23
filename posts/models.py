@@ -16,7 +16,7 @@ class PostAttachFiles(models.Model):
     post_id        = models.ForeignKey('Post', on_delete=models.CASCADE, related_name='post_attach_files')
     view_count     = models.IntegerField(default=0)
     file_type      = models.CharField(max_length=100)
-    path           = models.ImageField(upload_to='files/%Y%m%d')
+    path           = models.FileField(upload_to='files/%Y%m%d')
     thumbnail_path = ProcessedImageField(
         upload_to='thumbnail',
         processors=[ResizeToFit(width=614, upscale=False)],
