@@ -1,5 +1,6 @@
 import json
 import random
+import subprocess
 
 from pytz              import utc
 from django.views      import View
@@ -26,18 +27,31 @@ class PostView(View):
                 user_id = user,
                 content = data['content']
             )
-            
+
             for path in request.FILES.getlist('path'):
                 if str(path).split('.')[-1] in video:
                     file_type = "video"
                 else:
                     file_type = "image"
+
+
                 PostAttachFiles.objects.create(
                 post_id        = Post.objects.last(),
                 file_type      = file_type,
                 path           = path,
                 thumbnail_path = path
             )
+
+                video_path = "media/"+str(PostAttachFiles.objects.last().path)
+                thumbnail_path   = 'media/thumbnail/'+str(PostAttachFiles.objects.last().path).split('/')[-1]
+
+                subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
+                print(subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path]))
+                
+                print(path)
+                new_path = PostAttachFiles.objects.filter(path=path)
+                print(new_path)
+                PostAttachFiles.objects.filter(path=path).update(thumbnail_path=thumbnail_path)
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except ValueError:
@@ -57,18 +71,12 @@ class PostReadView(View):
             post_list = [[{ 
                     'post_id'        : post.id,
                     'user_id'        : post.user_id.id,
-                    'account'        : post.user_id.account,
+                    'user_account'   : post.user_id.account,
                     'content'        : post.content,
-                    'profile_photo'  : post.user_id.profile_photo,
+                    'profile_photo'  : "/media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
                     'like_count'     : post.like_count,
                     'is_liked'       : post.likes.filter(user_id=user, comment_id=None).exists(),
                     'total_comments' : post.comments.all().count(),
-                    'comments'       : [{
-                                        'comment_id': comment.id,
-                                        'user'      : comment.user_id.account,
-                                        'content'   : comment.content,
-                                        'is_liked'  : comment.likes.exists()
-                                        } for comment in post.comments.all()[:2]],
                     'created_at'     : post.created_at,
                     'file'           :[{
                                         'file_type'      : post_attach_file.file_type,
@@ -76,7 +84,7 @@ class PostReadView(View):
                                         'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
                                         }for post_attach_file in post.post_attach_files.all()]
                 } for post in Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')]
-                # follow한 사람 중 게시물 0인 사람은 [] 빈 배열이 넘어가버림. comprehension 안에서 조건문, continue 사용 불가
+                # follow한 사람 중 게시물 0인 사람은 [] 빈 배열이 넘어가버림.
             for follow in following]
 
             return JsonResponse({'feed':post_list}, status=200)
@@ -98,14 +106,14 @@ class PostStoryView(View):
                 'story_id'     : story.id,
                 'user_id'      : story.user_id.id,
                 'user_account' : story.user_id.account,
-                'profile_photo': story.user_id.profile_photo,
-                } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at) and int(str(now - story.created_at).split(':')[0]) < 24 ]
+                'profile_photo': "/media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
+                } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
                 for follow in following]
                 
                 user_dict = {
                     'user_id'       : request.user.id,
-                    'account'       : request.user.account,
-                    'profile_photo' : request.user.profile_photo
+                    'user_account'       : request.user.account,
+                    'profile_photo' : "/media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
                 }
 
                 story_list.append(user_dict)
@@ -123,17 +131,20 @@ class PostCommentView(View):
         try:
             post = Post.objects.filter(id=post_id).prefetch_related('comments')[0]
             comments_list=[{
+                'post_id'                    : comment.post_id.id,
                 'comment_id'                 : comment.id,
                 'content'                    : comment.content,
                 'comment_user_id'            : comment.user_id.id,
-                'comment_user_profile_photo' : comment.user_id.profile_photo,
+                'comment_user_account'       : comment.user_id.account,
+                'comment_user_profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
                 'created_at'                 : comment.created_at,
                 'is_liked'                   : comment.likes.exists(),
                 'recomment'                  :[{
-                                        'recomment_id'                 :recomment.id,
+                                        'recomment_id'                 : recomment.id,
                                         'content'                      : recomment.content,
                                         'recomment_user_id'            : recomment.user_id.id,
-                                        'recomment_user_profile_photo' : recomment.user_id.profile_photo,
+                                        'recomment_user_account'       : recomment.user_id.account,
+                                        'recomment_user_profile_photo' : "/media/"+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
                                         'created_at'                   : recomment.created_at,
                                         'is_liked'                     : comment.likes.exists()
 
@@ -150,8 +161,8 @@ class PostDeleteView(View):
     @login_check
     def delete(self, request, post_id):
         try:
-            post              = Post.objects.get(id=post_id)
-            post_attach_files = post.postattachfiles_set.all()
+            post              = Post.objects.filter(id=post_id).prefetch_related('post_attach_files')[0]
+            post_attach_files = post.post_attach_files.all()
 
             if post.user_id.id == request.user.id:
                 post_attach_files.delete()
@@ -165,7 +176,7 @@ class PostDeleteView(View):
 # # 게시물 수정
 # class PostUpdateView(View):
 #     @login_check
-#     def put(self, request, post_id):
+#     def post(self, request, post_id):
 #         try:
 #             data          = json.loads(request.body)
 #             post_querySet = Post.objects.filter(id=post_id)
@@ -182,7 +193,21 @@ class PostDeleteView(View):
                 
 #         except Post.DoesNotExist:
 #             return JsonResponse({"message":'해당하는 게시물이 없습니다.'}, status=400)
+        
+        
 
+# 댓글 작성
+class CommentView(View):
+    @login_check
+    def post(self, request, post_id):
+        try:
+            data = json.loads(request.body)
+            Comment(
+                post_id    = Post.objects.get(id=post_id),
+                user_id    = request.user,
+                content    = data['content'],
+                comment_id = data.get('comment_id')
+            ).save()
 
 # 댓글 작성
 class CommentView(View):
