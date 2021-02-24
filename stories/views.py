@@ -47,8 +47,11 @@ class ProfileStoryView(View):
             user    = User.objects.get(id = user_id)
             stories = []
             for story in user.story_set.all():
+                print("스토리", story)
                 if story.story_profile==1:
-                    for files in story.storyattachfiles_set.all():
+                    print(1111)
+                    for files in story.story_attach_files.all():
+                        print(files)
                         stories.append({
                             "story_id"       : story.id,
                             "title"          : story.title,
