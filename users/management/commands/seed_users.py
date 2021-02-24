@@ -34,6 +34,7 @@ class Command(BaseCommand):
             'phone'           : lambda x : fake.phone_number(),
             'email'           : lambda x : fake.email(),
             'profile_photo'   : None,
+            'thumbnail_path'  : None,
             'profile_message' : lambda x : fake.sentence()
         })
         seeder.execute()

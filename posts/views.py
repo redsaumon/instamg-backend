@@ -195,31 +195,23 @@ class PostDeleteView(View):
 #             return JsonResponse({"message":'해당하는 게시물이 없습니다.'}, status=400)
         
         
-
-# 댓글 작성
+# 댓글, 대댓글 작성
 class CommentView(View):
     @login_check
     def post(self, request, post_id):
         try:
             data = json.loads(request.body)
-            Comment(
-                post_id    = Post.objects.get(id=post_id),
-                user_id    = request.user,
-                content    = data['content'],
-                comment_id = data.get('comment_id')
-            ).save()
+            
+            if data.get('comment_id') is not None:
+                comment_id = Comment.objects.get(id=data.get('comment_id'))
+            else:
+                comment_id = None
 
-# 댓글 작성
-class CommentView(View):
-    @login_check
-    def post(self, request, post_id):
-        try:
-            data = json.loads(request.body)
             Comment(
                 post_id    = Post.objects.get(id=post_id),
                 user_id    = request.user,
                 content    = data['content'],
-                comment_id = data.get('comment_id')
+                comment_id = comment_id
             ).save()
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
@@ -250,19 +242,42 @@ class CommentModifyView(View):
     @login_check
     def post(self, request, post_id, comment_id):
         try:
-            print(111111)
-            data = json.loads(request.body)
+            data    = json.loads(request.body)
             comment = Comment.objects.filter(id=comment_id)
             comment.update(
-                content = data['content'],
+                content    = data['content'],
                 created_at = datetime.now()
             )
-            print(2222)
+
             return JsonResponse({'message':'SUCCES'}, status=201)
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
             
         except Comment.DoesNotExist:
+            return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST'}, status=400)
+
+
+# 댓글, 대댓글 좋아요
+class CommentLikeView(View):
+    @login_check
+    def post(self, request, comment_id):
+        try:
+            comment = Comment.objects.get(id=comment_id)
+
+            if Like.objects.filter(comment_id=comment.id, user_id=request.user).exists():
+                like = Like.objects.filter(comment_id=comment.id, user_id=request.user)
+                like.delete()
+                return JsonResponse({'message':'SUCCESS'}, status=200)
+
+            Like.objects.create(
+                comment_id = comment,
+                user_id    = request.user
+            )
+            return JsonResponse({'message':'SUCCESS'}, status=201)
+
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+        except Commentt.DoesNotExist :
             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST'}, status=400)
 
 
@@ -288,65 +303,6 @@ class PostLikeView(View):
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
         except Post.DoesNotExist :
             return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
-
-   
-# 대댓글 달기
-class RecommentView(View):
-    @login_check
-    def post(self, request, post_id, comment_id):
-        try:
-            data     = json.loads(request.body)
-            comments = Comment.objects.filter(post_id_id=post_id)
-            for comment in comments:
-                if comment.id == comment_id:
-                    Comment(
-                        post_id    = Post.objects.get(id=post_id),
-                        user_id    = request.user,
-                        comment_id = Comment.objects.get(id=comment_id),
-                        content    = data['content']
-                    ).save()
-                    return JsonResponse({'message':'SUCCESS'}, status=201)
-    
-            return JsonResponse({'message':'해당하는 댓글이 없습니다.'}, status=400)
-
-        except KeyError:
-            return JsonResponse({'message':'KEY_ERROR'}, status=400)
-        except Comment.DoesNotExist :
-           return JsonResponse({'message':'해당하는 게시물이 없습니다.'}, status=400)
-
-
-# # 대댓글 삭제(댓글삭제 API와 중복)
-# class RecommentDeleteView(View):
-#     @login_check
-#     def post(self, request, comment_id):
-#         try:
-#             comment = Comment.objects.get(id=comment_id)
-#             print(comment)
-#             if comment.user_id.id == request.user.id:
-#                 comment.delete()
-#                 return JsonResponse({'message':'SUCCESS'}, status=200)
-#             return JsonResponse({'message':'NO_PERMISSION'}, status=403)
-#         except Comment.DoesNotExist:
-#             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST.'}, status=400)
-
-
-# # 대댓글 수정(댓글수정 API와 중복)
-# class RecommentModifyView(View):
-#     @login_check
-#     def post(self, request, post_id, comment_id):
-#         try:
-#             data = json.loads(request.body)
-#             comment = Comment.objects.filter(id=comment_id)
-#             comment.update(
-#                 content = data['content'],
-#                 created_at = datetime.now()
-#             )
-#             return JsonResponse({'message':'SUCCES'}, status=200)
-#         except KeyError:
-#             return JsonResponse({'message':'KEY_ERROR'}, status=400)
-#         except Comment.DoesNotExist:
-#             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST'}, status=400)
-
 
 
 # 개인피드 프로필 부분 조회
