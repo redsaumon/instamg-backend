@@ -13,7 +13,6 @@ class StoryView(View):
     @transaction.atomic
     def post(self, request):
         try:
-            print("try문 아래")
             data  = json.loads(request.POST['json'])
             video = ['m4v', 'avi', 'mpg', 'mp4', 'webm'] 
             image = ['jpg', 'gif', 'bmp', 'png', 'jpeg']

@@ -22,6 +22,7 @@ class StoryAttachFiles(models.Model):
         processors=[ResizeToFit(width=614, upscale=False)],
         options={'quality': 100}
     )
+    
 
     class Meta:
         db_table = 'story_attach_files'
