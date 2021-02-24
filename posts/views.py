@@ -1,4 +1,5 @@
 import json
+import random
 
 from pytz              import utc
 from django.views      import View
@@ -7,9 +8,9 @@ from django.db         import transaction
 from datetime          import datetime
 
 from decorators        import login_check
-from stories.models    import Story
 from users.models      import User, Follow
 from .models           import Post, PostAttachFiles, Comment, Like, PostRead
+from stories.models    import Story, StoryAttachFiles, StoryRead
 
 class PostView(View):
     @login_check
@@ -41,32 +42,8 @@ class PostView(View):
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except ValueError:
             return JsonResponse({'message':'VALUE_ERROR'}, status=400)
-
-
-# post 상세 조회 - 정민님 파트, 추후 추가 필요
-class PostDetailView(View):
-    def get(self, request, post_id): 
-        try:
-            post       = Post.objects.filter(id=post_id).prefetch_related('post_attach_files')[0]
-            post_list = [{   
-                    'user_id'       : post.user_id.id,
-                    'account'       : post.user_id.account,
-                    'content'       : post.content,
-                    'profile_photo' : post.user_id.profile_photo,
-                    'like_count'    : post.like_count,
-                    'created_at'    : post.created_at,
-                    'file'          :[{
-                                    'file_type'      : post_attach_file.file_type,
-                                    'path'           : "/media/"+str(post_attach_file.path),
-                                    'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
-                    }for post_attach_file in post.post_attach_files.all()]
-            }]
-
-            return JsonResponse({'post':post_list}, status=200)
-        except ValueError:
-            return JsonResponse({'message':'VALUE_ERROR'}, status=400)
-        except IndexError:
-            return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
 
 
 # 게시물 전체 조회
@@ -207,124 +184,248 @@ class PostDeleteView(View):
 #             return JsonResponse({"message":'해당하는 게시물이 없습니다.'}, status=400)
 
 
-# # 댓글 작성, 조회
-# class CommentView(View):
+# 댓글 작성
+class CommentView(View):
+    @login_check
+    def post(self, request, post_id):
+        try:
+            data = json.loads(request.body)
+            Comment(
+                post_id    = Post.objects.get(id=post_id),
+                user_id    = request.user,
+                content    = data['content'],
+                comment_id = data.get('comment_id')
+            ).save()
+
+            return JsonResponse({'message':'SUCCESS'}, status=201)
+
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+        except Post.DoesNotExist :
+            return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
+
+
+# 댓글, 대댓글 삭제
+class CommentDeleteView(View):
+    @login_check
+    def post(self, request, comment_id):
+        try:
+            comment = Comment.objects.get(id=comment_id)
+
+            if comment.user_id.id == request.user.id:
+                comment.delete()
+                return JsonResponse({'message':'SUCCESS'}, status=200)
+            return JsonResponse({'message':'NO_PERMISSION'}, status=403)
+        except Comment.DoesNotExist:
+            return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST.'}, status=400)
+
+
+# 댓글, 대댓글 수정
+class CommentModifyView(View):
+    @login_check
+    def post(self, request, post_id, comment_id):
+        try:
+            print(111111)
+            data = json.loads(request.body)
+            comment = Comment.objects.filter(id=comment_id)
+            comment.update(
+                content = data['content'],
+                created_at = datetime.now()
+            )
+            print(2222)
+            return JsonResponse({'message':'SUCCES'}, status=201)
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+            
+        except Comment.DoesNotExist:
+            return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST'}, status=400)
+
+
+# 게시물 좋아요 하기
+class PostLikeView(View):
+    @login_check
+    def post(self, request, post_id):
+        try:
+            post = Post.objects.get(id=post_id)
+            
+            if Like.objects.filter(post_id=post.id, user_id=request.user).exists():
+                like = Like.objects.filter(post_id=post.id, user_id=request.user)
+                like.delete()
+                return JsonResponse({'message':'SUCCESS'}, status=200)
+
+            Like.objects.create(
+                post_id = post,
+                user_id = request.user
+            )
+            return JsonResponse({'message':'SUCCESS'}, status=201)
+
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+        except Post.DoesNotExist :
+            return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
+
+   
+# 대댓글 달기
+class RecommentView(View):
+    @login_check
+    def post(self, request, post_id, comment_id):
+        try:
+            data     = json.loads(request.body)
+            comments = Comment.objects.filter(post_id_id=post_id)
+            for comment in comments:
+                if comment.id == comment_id:
+                    Comment(
+                        post_id    = Post.objects.get(id=post_id),
+                        user_id    = request.user,
+                        comment_id = Comment.objects.get(id=comment_id),
+                        content    = data['content']
+                    ).save()
+                    return JsonResponse({'message':'SUCCESS'}, status=201)
+    
+            return JsonResponse({'message':'해당하는 댓글이 없습니다.'}, status=400)
+
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+        except Comment.DoesNotExist :
+           return JsonResponse({'message':'해당하는 게시물이 없습니다.'}, status=400)
+
+
+# # 대댓글 삭제(댓글삭제 API와 중복)
+# class RecommentDeleteView(View):
 #     @login_check
-#     def post(self, request, post_id):
+#     def post(self, request, comment_id):
 #         try:
-#             data      = json.loads(request.body)
-
-#             Comment(
-#                 post      = Post.objects.get(id=post_id),
-#                 user      = request.user,
-#                 content   = data['content']
-#             ).save()
-
-#             return JsonResponse({'message':'SUCCESS'}, status=201)
-
-#         except KeyError:
-#             return JsonResponse({'message':'KEY_ERROR'}, status=400)
-#         except Post.DoesNotExist :
-#             return JsonResponse({'message':'해당하는 게시물이 없습니다.'}, status=400)
-       
-#     def get(self, request, post_id): # post 출력 따로 comment 출력 따로..?
-#         post     = Post.objects.get(id=post_id)
-#         user     = post.user.account
-#         comments = post.comment_set.all()
-#         pub_date = post.pub_date
-
-#         if comments.count() == 0:
-#             return JsonResponse({'message':'댓글이 없는 게시물입니다.'}, status=400)
-
-#         contents_list = []
-#         for index, comment in enumerate(comments):
-#             print(comment.user.id)
-#             contents_dict = {
-#                 'content '+ str(index+1) : comment.content,
-#                 'writer_id'              : comment.user.id
-#             }
-#             contents_list.append(contents_dict)
-
-#         comment_dict = {
-#             'post_id'  : post.id,
-#             'user'     : user,
-#             'contents' : contents_list,
-#             'pub_date' : pub_date 
-#         }
-
-#         return JsonResponse({'comment':comment_dict}, status=200)
-
-# # 댓글 삭제
-# class CommentDeleteView(View):
-#     @login_check
-#     def delete(self, request, post_id, comment_id):
-#         try:
-#             data    = json.loads(request.body)
-#             user    = request.user
-#             post    = Post.objects.get(id=post_id)
-#             comment = post.comment_set.get(id=comment_id) # post 테이블에 oneToManyField 달아줘야할까?
-
-#             if comment.user.id == user.id:
+#             comment = Comment.objects.get(id=comment_id)
+#             print(comment)
+#             if comment.user_id.id == request.user.id:
 #                 comment.delete()
-#                 return JsonResponse({'message':'댓글 삭제 완료'}, status=200)
-#             return JsonResponse({'message':'권한이 없습니다.'}, status=403)
-
-#         except Post.DoesNotExist:
-#             return JsonResponse({'message':'해당하는 게시물이 없습니다.'}, status=400) 
+#                 return JsonResponse({'message':'SUCCESS'}, status=200)
+#             return JsonResponse({'message':'NO_PERMISSION'}, status=403)
 #         except Comment.DoesNotExist:
-#             return JsonResponse({'message':'해당하는 댓글이 없습니다.'}, status=400) 
+#             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST.'}, status=400)
 
-# # 좋아요 하기
-# class LikeView(View):
-#     @login_check
-#     def post(self, request, post_id):
-#         try:
-#             data          = json.loads(request.body)
-#             post_querySet = Post.objects.filter(id=post_id)
-#             post          = post_querySet[0]
-#             user          = request.user
 
-#             if Like.objects.filter(post=post_id): # 좋아요 테이블에 있는 게시물일 때
-#                 if Like.objects.filter(post=post_id, user=user.id):
-#                     post.likes -= 1
-#                     like = Like.objects.filter(post=post_id, user=user.id)
-#                     like.delete()
-#                 else:
-#                     post.likes += 1
-#             else:
-#                 Like.objects.create(post=post, user=user)
-#                 post.likes += 1
-
-#             post_likes = Like.objects.filter(post=post_id).count()
-#             post_querySet.update(likes = post_likes)
-
-#             return JsonResponse({'message':'SUCCESS'}, status=201)
-
-#         except KeyError:
-#             return JsonResponse({'message':'KEY_ERROR'}, status=400)
-#         except IndexError :
-#             return JsonResponse({'message':'해당하는 게시물이 없습니다.'}, status=400)      
-
-# # 대댓글 달기
-# class RecommentView(View):
+# # 대댓글 수정(댓글수정 API와 중복)
+# class RecommentModifyView(View):
 #     @login_check
 #     def post(self, request, post_id, comment_id):
 #         try:
-#             data     = json.loads(request.body)
-#             comments = Comment.objects.filter(post=post_id)
-#             for comment in comments:
-#                 if comment.id == comment_id:
-#                     Recomment(
-#                         post      = Post.objects.get(id=post_id),
-#                         user      = request.user,
-#                         comment   = Comment.objects.get(id=comment_id),
-#                         content   = data['content']
-#                     ).save()
-#                     return JsonResponse({'message':'SUCCESS'}, status=201)
-    
-#             return JsonResponse({'message':'해당하는 댓글이 없습니다.'}, status=400)
-
+#             data = json.loads(request.body)
+#             comment = Comment.objects.filter(id=comment_id)
+#             comment.update(
+#                 content = data['content'],
+#                 created_at = datetime.now()
+#             )
+#             return JsonResponse({'message':'SUCCES'}, status=200)
 #         except KeyError:
 #             return JsonResponse({'message':'KEY_ERROR'}, status=400)
-#         except Comment.DoesNotExist :
-#            return JsonResponse({'message':'해당하는 게시물이 없습니다.'}, status=400)
+#         except Comment.DoesNotExist:
+#             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST'}, status=400)
+
+
+
+# 개인피드 프로필 부분 조회
+class ProfileView(View):
+    @login_check
+    def get(self, request, user_id):
+        try:
+            login_user = request.user
+            user       = User.objects.get(id = user_id)
+            result     = {
+                "id"              : user.id,
+                "account"         : user.account,
+                "profile_photo"   : "/media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
+                "is_myprofile"    : True if login_user.id==user_id else False,
+                "is_following"    : True if Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists()else False,
+                "post_count"      : user.post_set.count(),
+                "follower_count"  : Follow.objects.filter(followed_user_id_id=user).count(),
+                "following_count" : Follow.objects.filter(follower_user_id_id=user).count(),
+                "profile_message" : user.profile_message,
+                "living"          : random.choice([True, False]),
+                "today_live"      : random.choice([True, False])
+            }
+            return JsonResponse({"profile" : result}, status = 200)
+        except KeyError:
+            return JsonResponse({"message" : "KEY_ERROR"}, status=400)
+        
+
+# 개인피드 게시물(9개씩)조회
+class ProfileFeedView(View):
+    def get(self, request, user_id):
+        try:
+            user       = User.objects.get(id = user_id)
+            like       = Like.objects.filter(comment_id_id=None)
+            page       = int(request.GET.get("page", 1))
+            PAGE_SIZE  = 9
+            limit      = page * PAGE_SIZE
+            offset     = limit - PAGE_SIZE
+
+            post_list  = [
+                {
+                    "post_id"        : post.id,
+                    "content"        : post.content,
+                    "created_at"     : post.created_at,
+                    "like_count"     : like.filter(post_id_id=post.id).count(),
+                    "comments_count" : Comment.objects.filter(post_id_id=post.id).count(),
+                    "is_multiple"    : False if post.post_attach_files.count()==1 else True,
+                    "file"           : [{
+                        "file_type"      : post_attach_file.file_type,
+                        "view_count"     : post_attach_file.view_count,
+                        "thumbnail_path" : "/media/"+str(post_attach_file.thumbnail_path),
+                        "path"           : "/media/"+str(post_attach_file.path)
+                    }for post_attach_file in post.post_attach_files.all()],
+                }for post in user.post_set.all().prefetch_related('post_attach_files')[offset:limit]]
+            return JsonResponse({"post_list" : post_list}, status = 200)
+        except KeyError:
+            return JsonResponse({"message" : "KEY_ERROR"}, status=400)
+
+
+# post 상세 조회(모달창)
+class PostDetailView(View):
+    @login_check
+    def get(self, request, post_id): 
+        try:
+            login_user = request.user
+            post       = Post.objects.filter(id=post_id).prefetch_related('post_attach_files', 'comments')[0]
+            post       = { 
+                    'post_id'            : post.id,  
+                    'user_id'            : post.user_id.id,
+                    'account'            : post.user_id.account,
+                    'profile_photo'      : "/media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
+                    'content'            : post.content,
+                    'like_count'         : post.like_count,
+                    'created_at'         : post.created_at,
+                    'today_live'         : random.choice([True, False]),
+                    'isowner_following'  : True if Follow.objects.filter(followed_user_id_id=post.user_id.id, follower_user_id=login_user).exists()else False,
+                    'is_liked'           : True if Like.objects.filter(user_id_id=login_user, post_id=post.id).exists()else False,
+                    'comments'       : [{
+                        'comment_id'    : comment.id,
+                        'user_id'       : comment.user_id_id,
+                        'account'       : comment.user_id.account,
+                        'profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                        'content'       : comment.content,
+                        'created_at'    : comment.created_at,
+                        'like_count'    : Like.objects.filter(comment_id_id=comment.id).count()
+                    }for comment in post.comments.filter(comment_id_id=None)],
+                    'recomments'     : [{
+                        'recomment_id'  : comment.id,
+                        'comment_id'    : comment.comment_id_id,
+                        'user_id'       : comment.user_id_id,
+                        'account'       : comment.user_id.account,
+                        'profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                        'content'       : comment.content,
+                        'created_at'    : comment.created_at,
+                        'like_count'    : Like.objects.filter(comment_id_id=comment.id).count(),
+                    }for comment in post.comments.exclude(comment_id_id=None)],
+                    'file'          :[{
+                                    'file_type'      : post_attach_file.file_type,
+                                    "view_count"     : post_attach_file.view_count,
+                                    'path'           : "/media/"+str(post_attach_file.path),
+                                    'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
+                    }for post_attach_file in post.post_attach_files.all()]
+            }
+            return JsonResponse({'post':post}, status=200)
+        except ValueError:
+            return JsonResponse({'message':'VALUE_ERROR'}, status=400)
+        except IndexError:
+            return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
