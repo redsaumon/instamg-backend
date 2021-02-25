@@ -20,7 +20,7 @@ class PostView(View):
         try:
             data  = json.loads(request.POST['json'])
             user  = request.user
-            video = ['m4v', 'avi','mpg','mp4', 'webm']
+            video = ['m4v', 'avi','mpg','mp4', 'webm', 'MOV']
             image = ['jpg', 'gif', 'bmp', 'png', 'jpeg']
 
             Post.objects.create(
@@ -39,19 +39,18 @@ class PostView(View):
                 post_id        = Post.objects.last(),
                 file_type      = file_type,
                 path           = path,
-                thumbnail_path = path
+                thumbnail_path = None
             )
 
-                video_path = "media/"+str(PostAttachFiles.objects.last().path)
-                thumbnail_path   = 'media/thumbnail/'+str(PostAttachFiles.objects.last().path).split('/')[-1]
+                post_file = str(PostAttachFiles.objects.last().path)
+                video_path     = 'media/'+post_file
+                thumbnail_path = 'media/thumbnail/'+post_file.split('/')[-1]
 
                 subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
-                print(subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path]))
                 
-                print(path)
-                new_path = PostAttachFiles.objects.filter(path=path)
-                print(new_path)
-                PostAttachFiles.objects.filter(path=path).update(thumbnail_path=thumbnail_path)
+                post_file = PostAttachFiles.objects.last()
+                post_file.thumbnail_path = thumbnail_path
+                post_file.save()
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except ValueError:
@@ -84,8 +83,7 @@ class PostReadView(View):
                                         'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
                                         }for post_attach_file in post.post_attach_files.all()]
                 } for post in Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')]
-                # follow한 사람 중 게시물 0인 사람은 [] 빈 배열이 넘어가버림.
-            for follow in following]
+            for follow in following if len(Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')) > 0]
 
             return JsonResponse({'feed':post_list}, status=200)
         except ValueError:
@@ -100,7 +98,7 @@ class PostStoryView(View):
     def get(self,request):
             try:
                 following = Follow.objects.filter(follower_user_id=request.user)
-                now = utc.localize(datetime.utcnow())
+                now       = utc.localize(datetime.utcnow())
 
                 story_list = [[{
                 'story_id'     : story.id,
@@ -112,7 +110,7 @@ class PostStoryView(View):
                 
                 user_dict = {
                     'user_id'       : request.user.id,
-                    'user_account'       : request.user.account,
+                    'user_account'  : request.user.account,
                     'profile_photo' : "/media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
                 }
 
@@ -317,7 +315,7 @@ class ProfileView(View):
                 "account"         : user.account,
                 "profile_photo"   : "/media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
                 "is_myprofile"    : True if login_user.id==user_id else False,
-                "is_following"    : Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists(),
+                "is_following"    : True if Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists()else False,
                 "post_count"      : user.post_set.count(),
                 "follower_count"  : Follow.objects.filter(followed_user_id_id=user).count(),
                 "following_count" : Follow.objects.filter(follower_user_id_id=user).count(),
@@ -377,29 +375,27 @@ class PostDetailView(View):
                     'like_count'         : post.like_count,
                     'created_at'         : post.created_at,
                     'today_live'         : random.choice([True, False]),
-                    'isowner_following'  : Follow.objects.filter(followed_user_id_id=post.user_id.id, follower_user_id=login_user).exists(),
-                    'is_liked'           : Like.objects.filter(user_id_id=login_user, post_id=post.id).exists(),
-                    'comments' : [{
-                'comment_id'                 : comment.id,
-                'content'                    : comment.content,
-                'comment_user_id'            : comment.user_id.id,
-                'comment_user_account'       : comment.user_id.account,
-                'comment_user_profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
-                'created_at'                 : comment.created_at,
-                'like_count'                 : Like.objects.filter(id=comment.id).count(),
-                'is_liked'                   : comment.likes.exists(),
-                'recomment'                  :[{
-                                        'comment_id'                   : comment.id,
-                                        'recomment_id'                 : recomment.id,
-                                        'content'                      : recomment.content,
-                                        'recomment_user_id'            : recomment.user_id.id,
-                                        'recomment_user_account'       : recomment.user_id.account,
-                                        'recomment_user_profile_photo' : "/media/"+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
-                                        'created_at'                   : recomment.created_at,
-                                        'like_count'                   : Like.objects.filter(comment_id_id=comment.id).count(),
-                                        'is_liked'                     : comment.likes.exists()
-                } for recomment in Comment.objects.filter(comment_id=comment.id)]
-            } for comment in post.comments.filter(comment_id=None)],
+                    'isowner_following'  : True if Follow.objects.filter(followed_user_id_id=post.user_id.id, follower_user_id=login_user).exists()else False,
+                    'is_liked'           : True if Like.objects.filter(user_id_id=login_user, post_id=post.id).exists()else False,
+                    'comments'       : [{
+                        'comment_id'    : comment.id,
+                        'user_id'       : comment.user_id_id,
+                        'account'       : comment.user_id.account,
+                        'profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                        'content'       : comment.content,
+                        'created_at'    : comment.created_at,
+                        'like_count'    : Like.objects.filter(comment_id_id=comment.id).count()
+                    }for comment in post.comments.filter(comment_id_id=None)],
+                    'recomments'     : [{
+                        'recomment_id'  : comment.id,
+                        'comment_id'    : comment.comment_id_id,
+                        'user_id'       : comment.user_id_id,
+                        'account'       : comment.user_id.account,
+                        'profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                        'content'       : comment.content,
+                        'created_at'    : comment.created_at,
+                        'like_count'    : Like.objects.filter(comment_id_id=comment.id).count(),
+                    }for comment in post.comments.exclude(comment_id_id=None)],
                     'file'          :[{
                                     'file_type'      : post_attach_file.file_type,
                                     "view_count"     : post_attach_file.view_count,
