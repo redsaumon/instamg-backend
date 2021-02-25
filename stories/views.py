@@ -1,4 +1,5 @@
 import json
+import subprocess
 
 from django.views import View
 from django.http  import JsonResponse
@@ -14,7 +15,7 @@ class StoryView(View):
     def post(self, request):
         try:
             data  = json.loads(request.POST['json'])
-            video = ['m4v', 'avi', 'mpg', 'mp4', 'webm'] 
+            video = ['m4v', 'avi', 'mpg', 'mp4', 'webm', 'MOV'] 
             image = ['jpg', 'gif', 'bmp', 'png', 'jpeg']
 
             if str(request.FILES['path']).split('.')[-1] in video:
@@ -24,17 +25,25 @@ class StoryView(View):
 
             Story(
                 user_id = request.user,
-                title = None
-                #title = data['title'],
-                #story_profile = data['story_profile']
+                title   = data.get('title')
             ).save()
 
             StoryAttachFiles(
                 story_id       = Story.objects.last(),
                 file_type      = file_type,
                 path           = request.FILES['path'],
-                thumbnail_path = request.FILES['path']
+                thumbnail_path = None
             ).save()
+
+            story_file     = str(StoryAttachFiles.objects.last().path)
+            video_path     = 'media/'+story_file
+            thumbnail_path = 'media/thumbnail/'+story_file.split('/')[-1]
+
+            subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
+            
+            story_file = StoryAttachFiles.objects.last()
+            story_file.thumbnail_path = thumbnail_path
+            story_file.save()
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except ValueError:
