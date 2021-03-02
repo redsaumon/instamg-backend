@@ -24,7 +24,7 @@ class Command(BaseCommand):
         for i in range(number):
             followed = random.choice(follow)
             follower = random.choice(follow)
-            if followed != follower: 
+            if followed != follower and not Follow.objects.filter(followed_user_id=followed, follower_user_id=follower).exists(): 
                 Follow.objects.create(
                     followed_user_id = followed,
                     follower_user_id = follower
