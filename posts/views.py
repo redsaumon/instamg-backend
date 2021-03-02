@@ -309,18 +309,21 @@ class ProfileView(View):
         try:
             login_user = request.user
             user       = User.objects.get(id = user_id)
+            now = utc.localize(datetime.utcnow())
+            story      = user.story_set.all()
+            created_story= [story.created_at for story in user.story_set.all() if 'days' in str(now - story.created_at)]
             result     = {
                 "id"              : user.id,
                 "account"         : user.account,
                 "profile_photo"   : "/media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
                 "is_myprofile"    : True if login_user.id==user_id else False,
-                "is_following"    : True if Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists()else False,
+                "is_following"    : Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists(),
                 "post_count"      : user.post_set.count(),
                 "follower_count"  : Follow.objects.filter(followed_user_id_id=user).count(),
                 "following_count" : Follow.objects.filter(follower_user_id_id=user).count(),
                 "profile_message" : user.profile_message,
                 "living"          : random.choice([True, False]),
-                "today_live"      : random.choice([True, False])
+                "today_live"     : True if len(created_story) > 0  else False #24시간내 스토리 게시헸을 때 True
             }
             return JsonResponse({"profile" : result}, status = 200)
         except KeyError:
@@ -349,10 +352,10 @@ class ProfileFeedView(View):
                     "file"           : [{
                         "file_type"      : post_attach_file.file_type,
                         "view_count"     : post_attach_file.view_count,
-                        "thumbnail_path" : "/media/"+str(post_attach_file.thumbnail_path),
+                        "thumbnail_path" : "/"+str(post_attach_file.thumbnail_path),
                         "path"           : "/media/"+str(post_attach_file.path)
                     }for post_attach_file in post.post_attach_files.all()],
-                }for post in user.post_set.all().prefetch_related('post_attach_files')[offset:limit]]
+                }for post in user.post_set.all().prefetch_related('post_attach_files')[offset:limit]]#.order_by('-created_at')
             return JsonResponse({"post_list" : post_list}, status = 200)
         except KeyError:
             return JsonResponse({"message" : "KEY_ERROR"}, status=400)
@@ -371,7 +374,7 @@ class PostDetailView(View):
                     'account'            : post.user_id.account,
                     'profile_photo'      : "/media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
                     'content'            : post.content,
-                    'like_count'         : post.like_count,
+                    'like_count'         : Like.objects.filter(post_id_id=post.id).count(),
                     'created_at'         : post.created_at,
                     'today_live'         : random.choice([True, False]),
                     'isowner_following'  : Follow.objects.filter(followed_user_id_id=post.user_id.id, follower_user_id=login_user).exists(),
@@ -401,7 +404,7 @@ class PostDetailView(View):
                                     'file_type'      : post_attach_file.file_type,
                                     "view_count"     : post_attach_file.view_count,
                                     'path'           : "/media/"+str(post_attach_file.path),
-                                    'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
+                                    'thumbnail_path' : "/"+str(post_attach_file.thumbnail_path)
                     }for post_attach_file in post.post_attach_files.all()]
             }
             return JsonResponse({'post':post}, status=200)
