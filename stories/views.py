@@ -7,7 +7,6 @@ from django.http  import JsonResponse
 from django.db    import transaction
 from datetime     import datetime
 
-
 from users.models import User, Follow
 from .models      import Story, StoryAttachFiles
 from decorators   import login_check
@@ -69,7 +68,7 @@ class ProfileStoryView(View):
                             "path"           : "/media/"+str(files.path),
                             "file_type"      : files.file_type
                         })
-            return JsonResponse({"profile_story" : stories}, status = 200)
+            return JsonResponse({"profile_story" : stories}, status=200)
         except KeyError:
             return JsonResponse({"message" : "KEY_ERROR"}, status=400)
 
@@ -79,8 +78,8 @@ class StoryListView(View):
     def get(self, request):
         try:
             login_user = request.user
-            following = Follow.objects.filter(follower_user_id=login_user.id)
-            now = utc.localize(datetime.utcnow())
+            following  = Follow.objects.filter(follower_user_id=login_user.id)
+            now        = utc.localize(datetime.utcnow())
             
             user = [{
                     'user_id'       : request.user.id,
@@ -94,8 +93,8 @@ class StoryListView(View):
                     'user_account' : story.user_id.account,
                     'profile_photo': "/media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
                     'files' : [{
-                        'file_type' : story_file.file_type,
-                        'path' : '/media/'+str(story_file.path),
+                        'file_type'      : story_file.file_type,
+                        'path'           : '/media/'+str(story_file.path),
                         'thumbnail_path' : '/'+str(story_file.thumbnail_path),
                     }for story_file in story.story_attach_files.all()]
                     } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
