@@ -41,14 +41,15 @@ class PostView(View):
                 thumbnail_path = None
             )
 
-                post_file = str(PostAttachFiles.objects.last().path)
+                post_file      = str(PostAttachFiles.objects.last().path)
                 video_path     = 'media/'+post_file
                 thumbnail_path = 'media/thumbnail/'+post_file.split('/')[-1]
 
                 subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
-
-                new_path = PostAttachFiles.objects.filter(path=path)
-                PostAttachFiles.objects.filter(path=path).update(thumbnail_path=thumbnail_path)
+                
+                post_file = PostAttachFiles.objects.last()
+                post_file.thumbnail_path = thumbnail_path
+                post_file.save()
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except ValueError:
@@ -102,10 +103,9 @@ class PostStoryView(View):
                 'story_id'     : story.id,
                 'user_id'      : story.user_id.id,
                 'user_account' : story.user_id.account,
-                'created_at'   : story.created_at,
                 'profile_photo': "/media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
                 } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
-                for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0]
+                for follow in following]
                 
                 user_dict = {
                     'user_id'       : request.user.id,
@@ -264,12 +264,16 @@ class CommentLikeView(View):
             if Like.objects.filter(comment_id=comment.id, user_id=request.user).exists():
                 like = Like.objects.filter(comment_id=comment.id, user_id=request.user)
                 like.delete()
+                comment.like_count -= 1
+                comment.save()
                 return JsonResponse({'message':'SUCCESS'}, status=200)
 
             Like.objects.create(
                 comment_id = comment,
                 user_id    = request.user
             )
+            comment.like_count += 1
+            comment.save()
             return JsonResponse({'message':'SUCCESS'}, status=201)
 
         except KeyError:
@@ -288,12 +292,16 @@ class PostLikeView(View):
             if Like.objects.filter(post_id=post.id, user_id=request.user).exists():
                 like = Like.objects.filter(post_id=post.id, user_id=request.user)
                 like.delete()
+                post.like_count -= 1
+                post.save()
                 return JsonResponse({'message':'SUCCESS'}, status=200)
 
             Like.objects.create(
                 post_id = post,
                 user_id = request.user
             )
+            post.like_count += 1
+            post.save()
             return JsonResponse({'message':'SUCCESS'}, status=201)
 
         except KeyError:
@@ -307,22 +315,25 @@ class ProfileView(View):
     @login_check
     def get(self, request, user_id):
         try:
-            login_user = request.user
-            user       = User.objects.get(id = user_id)
-            result     = {
+            login_user    = request.user
+            user          = User.objects.get(id = user_id)
+            now           = utc.localize(datetime.utcnow())
+            story         = user.story_set.all()
+            created_story = [story.created_at for story in user.story_set.all() if 'days' in str(now - story.created_at)]
+            result        = {
                 "id"              : user.id,
                 "account"         : user.account,
                 "profile_photo"   : "/media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
                 "is_myprofile"    : True if login_user.id==user_id else False,
-                "is_following"    : True if Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists()else False,
+                "is_following"    : Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists(),
                 "post_count"      : user.post_set.count(),
                 "follower_count"  : Follow.objects.filter(followed_user_id_id=user).count(),
                 "following_count" : Follow.objects.filter(follower_user_id_id=user).count(),
                 "profile_message" : user.profile_message,
                 "living"          : random.choice([True, False]),
-                "today_live"      : random.choice([True, False])
+                "today_live"     : True if len(created_story) > 0  else False #24시간내 스토리 게시헸을 때 True
             }
-            return JsonResponse({"profile" : result}, status = 200)
+            return JsonResponse({"profile" : result}, status=200)
         except KeyError:
             return JsonResponse({"message" : "KEY_ERROR"}, status=400)
         
@@ -343,7 +354,7 @@ class ProfileFeedView(View):
                     "post_id"        : post.id,
                     "content"        : post.content,
                     "created_at"     : post.created_at,
-                    "like_count"     : like.filter(post_id_id=post.id).count(),
+                    "like_count"     : post.like_count,
                     "comments_count" : Comment.objects.filter(post_id_id=post.id).count(),
                     "is_multiple"    : False if post.post_attach_files.count()==1 else True,
                     "file"           : [{

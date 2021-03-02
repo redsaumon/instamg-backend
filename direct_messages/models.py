@@ -3,11 +3,10 @@ from imagekit.models     import ProcessedImageField
 from imagekit.processors import ResizeToFit
 
 class DirectMessage(models.Model):
-    send_user_id     = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='send_user')
-    received_user_id = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='received_user')
-    content          = models.CharField(max_length=2000)
-    created_at       = models.DateTimeField(auto_now_add=True)
-    is_read          = models.BooleanField(default=0)
+    user_id     = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='user')
+    message     = models.CharField(max_length=2000)
+    created_at  = models.DateTimeField(auto_now_add=True)
+    is_read     = models.BooleanField(default=0)
 
     def __str__(self):
         return self.send_user_id.account

@@ -31,9 +31,8 @@ class ChatConsumer(WebsocketConsumer):
     def receive(self, text_data):
         data = json.loads(text_data)
         direct_message = DirectMessage.objects.create(
-            send_user_id     = User.objects.get(id=1),
-            received_user_id = User.objects.get(id=2),
-            content = data['message']
+            user_id = User.objects.get(id=1),
+            message = data['message']
         )
         print(data)
         message = data['message']
