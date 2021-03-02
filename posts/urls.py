@@ -12,7 +12,9 @@ from .views      import (
     CommentView,
     CommentDeleteView,
     CommentModifyView,
-    CommentLikeView
+    CommentLikeView,
+    GoToPostView,
+    Viewcount
 )
 
 urlpatterns = [
@@ -29,5 +31,6 @@ urlpatterns = [
     path('/comment/delete/<int:comment_id>', CommentDeleteView.as_view()),
     path('/comment/<int:post_id>/<int:comment_id>', CommentModifyView.as_view()),
     path('/comment/like/<int:comment_id>', CommentLikeView.as_view()),
-
+    path('/<int:user_id>/<int:post_id>', GoToPostView.as_view()),
+    path('/view/<int:postattachfiles_id>', Viewcount.as_view())
 ]

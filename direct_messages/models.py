@@ -1,9 +1,17 @@
-from django.db import models
+from django.db           import models
 from imagekit.models     import ProcessedImageField
 from imagekit.processors import ResizeToFit
 
+
+class Room(models.Model):
+    name = models.CharField(max_length=100)
+
+    class Meta:
+        db_table = 'rooms'
+
 class DirectMessage(models.Model):
-    user_id     = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='user')
+    room_id     = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='rooms')
+    user_id     = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='users')
     message     = models.CharField(max_length=2000)
     created_at  = models.DateTimeField(auto_now_add=True)
     is_read     = models.BooleanField(default=0)
