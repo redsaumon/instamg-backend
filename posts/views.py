@@ -34,7 +34,6 @@ class PostView(View):
                 else:
                     file_type = "image"
 
-
                 PostAttachFiles.objects.create(
                 post_id        = Post.objects.last(),
                 file_type      = file_type,
@@ -47,10 +46,9 @@ class PostView(View):
                 thumbnail_path = 'media/thumbnail/'+post_file.split('/')[-1]
 
                 subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
-                
-                post_file = PostAttachFiles.objects.last()
-                post_file.thumbnail_path = thumbnail_path
-                post_file.save()
+
+                new_path = PostAttachFiles.objects.filter(path=path)
+                PostAttachFiles.objects.filter(path=path).update(thumbnail_path=thumbnail_path)
 
             return JsonResponse({'message':'SUCCESS'}, status=201)
         except ValueError:
@@ -83,7 +81,7 @@ class PostReadView(View):
                                         'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
                                         }for post_attach_file in post.post_attach_files.all()]
                 } for post in Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')]
-            for follow in following if len(Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')) > 0]
+            for follow in following if len(Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files')) > 0]
 
             return JsonResponse({'feed':post_list}, status=200)
         except ValueError:
@@ -104,9 +102,10 @@ class PostStoryView(View):
                 'story_id'     : story.id,
                 'user_id'      : story.user_id.id,
                 'user_account' : story.user_id.account,
+                'created_at'   : story.created_at,
                 'profile_photo': "/media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
                 } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
-                for follow in following]
+                for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0]
                 
                 user_dict = {
                     'user_id'       : request.user.id,

@@ -22,5 +22,5 @@ urlpatterns = [
     path('user', include('users.urls')),
     path('post', include('posts.urls')),
     path('story', include('stories.urls')),
-    path('dm', include('direct_messages.urls'))
+    path('direct_messages/', include('direct_messages.urls'))
 ] + static(settings.MEDIA_URL, document_root = settings.MEDIA_ROOT)
