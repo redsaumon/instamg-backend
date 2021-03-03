@@ -124,11 +124,13 @@ class UserProfileView(View):
     @login_check
     def post(self, request):
         try:
+            print(request)
             user            = request.user
             PASSWORD_LENGTH = 6
             EMAIL_VALIDATOR = re.compile(r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
             data            = json.loads(request.POST['json'])
             new_password    = data.get('new_password')
+            print("데이터", data)
         
             if User.objects.exclude(id=user.id).filter(account=data['new_account']).exists():
                 return JsonResponse({'message' : 'ALREADY_IN_USE_ACCOUNT'}, status=400)
@@ -154,16 +156,17 @@ class UserProfileView(View):
     
             User.objects.filter(id=user.id).update(profile_message=data['new_profile_message'])
     
-            path = request.FILES['profile_photo']
-            user = User.objects.filter(id=user.id)[0]
-            user.profile_photo  = path
-            user.thumbnail_path = path
-            user.save()
+            if request.FILES.get('profile_photo'):
+                path = request.FILES['profile_photo']
+                user = User.objects.filter(id=user.id)[0]
+                user.profile_photo  = path
+                user.thumbnail_path = path
+                user.save()
 
             return JsonResponse({'message' : 'CHANGE_COMPLETE'}, status=200)
      
-        except KeyError:
-            return JsonResponse({'message' : 'KEY_ERROR'}, status=400, safe=False)
+        # except KeyError:
+        #     return JsonResponse({'message' : 'KEY_ERROR'}, status=400, safe=False)
         except ValueError:
             return JsonResponse({'message' : 'VALUE_ERROR'}, status=400, safe=False)
 
