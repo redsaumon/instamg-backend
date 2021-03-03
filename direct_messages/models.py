@@ -17,7 +17,7 @@ class DirectMessage(models.Model):
     is_read     = models.BooleanField(default=0)
 
     def __str__(self):
-        return self.send_user_id.account
+        return self.user_id.account
 
     def last_10_messages(self):
         return DirectMessage.objects.order_by('-timestamp').all()[:10]

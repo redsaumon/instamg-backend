@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'stories',
     'direct_messages',
     'imagekit',
+    'drf_yasg',
 ]
 
 
