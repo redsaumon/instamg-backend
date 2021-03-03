@@ -64,8 +64,8 @@ class ProfileStoryView(View):
                             "story_id"       : story.id,
                             "title"          : story.title,
                             "created_at"     : story.created_at,
-                            "thumbnail_path" : "/"+str(files.thumbnail_path),
-                            "path"           : "/media/"+str(files.path),
+                            "thumbnail_path" : str(files.thumbnail_path),
+                            "path"           : "media/"+str(files.path),
                             "file_type"      : files.file_type
                         })
             return JsonResponse({"profile_story" : stories}, status=200)
@@ -84,23 +84,22 @@ class StoryListView(View):
             user = [{
                     'user_id'       : request.user.id,
                     'user_account'  : request.user.account,
-                    'profile_photo' : "/media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
+                    'profile_photo' : 'media/'+str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
             }]
             story_list = [[{
                     'story_id'     : story.id,
                     'created_at'   : story.created_at,
                     'user_id'      : story.user_id.id,
                     'user_account' : story.user_id.account,
-                    'profile_photo': "/media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
+                    'profile_photo': 'media/'+str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
                     'files' : [{
                         'file_type'      : story_file.file_type,
-                        'path'           : '/media/'+str(story_file.path),
-                        'thumbnail_path' : '/'+str(story_file.thumbnail_path),
+                        'path'           : 'media/'+str(story_file.path),
+                        'thumbnail_path' : str(story_file.thumbnail_path),
                     }for story_file in story.story_attach_files.all()]
                     } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
                     for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0] 
-                    
-            #story_list.append(user)
+
             return JsonResponse({'story_list' : story_list, 'user' : user}, status=200)
 
         except KeyError:

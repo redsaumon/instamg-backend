@@ -64,6 +64,7 @@ class PostReadView(View):
     def get(self, request):
         try:
             user      = request.user
+            print(user.id)
             following = Follow.objects.filter(follower_user_id=user)
             #이미 읽은 post, story 받아서 조회할 때 이미 읽은 애들 빼기
             post_list = [[{ 
@@ -71,15 +72,16 @@ class PostReadView(View):
                     'user_id'        : post.user_id.id,
                     'user_account'   : post.user_id.account,
                     'content'        : post.content,
-                    'profile_photo'  : "/media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
+                    'profile_photo'  : "media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
                     'like_count'     : post.like_count,
                     'is_liked'       : post.likes.filter(user_id=user, comment_id=None).exists(),
                     'total_comments' : post.comments.all().count(),
                     'created_at'     : post.created_at,
                     'file'           :[{
+                                        'id'             : post_attach_file.id,
                                         'file_type'      : post_attach_file.file_type,
-                                        'path'           : "/media/"+str(post_attach_file.path),
-                                        'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
+                                        'path'           : "media/"+str(post_attach_file.path),
+                                        'thumbnail_path' : str(post_attach_file.thumbnail_path)
                                         }for post_attach_file in post.post_attach_files.all()]
                 } for post in Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')]
             for follow in following if len(Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files')) > 0]
@@ -103,14 +105,15 @@ class PostStoryView(View):
                 'story_id'     : story.id,
                 'user_id'      : story.user_id.id,
                 'user_account' : story.user_id.account,
-                'profile_photo': "/media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
+                'profile_photo': "media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
                 } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
-                for follow in following]
+                for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0]
+
                 
                 user_dict = {
                     'user_id'       : request.user.id,
                     'user_account'  : request.user.account,
-                    'profile_photo' : "/media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
+                    'profile_photo' : "media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
                 }
 
                 story_list.append(user_dict)
@@ -133,7 +136,7 @@ class PostCommentView(View):
                 'content'                    : comment.content,
                 'comment_user_id'            : comment.user_id.id,
                 'comment_user_account'       : comment.user_id.account,
-                'comment_user_profile_photo' : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                'comment_user_profile_photo' : "media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
                 'created_at'                 : comment.created_at,
                 'is_liked'                   : comment.likes.exists(),
                 'recomment'                  :[{
@@ -141,7 +144,7 @@ class PostCommentView(View):
                                         'content'                      : recomment.content,
                                         'recomment_user_id'            : recomment.user_id.id,
                                         'recomment_user_account'       : recomment.user_id.account,
-                                        'recomment_user_profile_photo' : "/media/"+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
+                                        'recomment_user_profile_photo' : "media/"+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
                                         'created_at'                   : recomment.created_at,
                                         'is_liked'                     : comment.likes.exists()
 
@@ -259,21 +262,20 @@ class CommentLikeView(View):
     @login_check
     def post(self, request, comment_id):
         try:
+            print(request)
+            print("댓글좋아용", comment_id)
+
             comment = Comment.objects.get(id=comment_id)
 
             if Like.objects.filter(comment_id=comment.id, user_id=request.user).exists():
                 like = Like.objects.filter(comment_id=comment.id, user_id=request.user)
                 like.delete()
-                comment.like_count -= 1
-                comment.save()
                 return JsonResponse({'message':'SUCCESS'}, status=200)
 
             Like.objects.create(
                 comment_id = comment,
                 user_id    = request.user
             )
-            comment.like_count += 1
-            comment.save()
             return JsonResponse({'message':'SUCCESS'}, status=201)
 
         except KeyError:
@@ -323,7 +325,7 @@ class ProfileView(View):
             result        = {
                 "id"              : user.id,
                 "account"         : user.account,
-                "profile_photo"   : "/media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
+                "profile_photo"   : "media/"+str(user.thumbnail_path) if str(user.thumbnail_path) else None,
                 "is_myprofile"    : True if login_user.id==user_id else False,
                 "is_following"    : Follow.objects.filter(followed_user_id_id=user, follower_user_id=login_user).exists(),
                 "post_count"      : user.post_set.count(),
@@ -358,10 +360,10 @@ class ProfileFeedView(View):
                     "comments_count" : Comment.objects.filter(post_id_id=post.id).count(),
                     "is_multiple"    : False if post.post_attach_files.count()==1 else True,
                     "file"           : [{
+                        "id"             : post_attach_file.id,
                         "file_type"      : post_attach_file.file_type,
                         "view_count"     : post_attach_file.view_count,
-                        "thumbnail_path" : "/media/"+str(post_attach_file.thumbnail_path),
-                        "path"           : "/media/"+str(post_attach_file.path)
+                        "thumbnail_path" : str(post_attach_file.thumbnail_path)
                     }for post_attach_file in post.post_attach_files.all()],
                 }for post in user.post_set.all().prefetch_related('post_attach_files')[offset:limit]]
             return JsonResponse({"post_list" : post_list}, status = 200)
@@ -380,7 +382,7 @@ class PostDetailView(View):
                     'post_id'            : post.id,  
                     'user_id'            : post.user_id.id,
                     'account'            : post.user_id.account,
-                    'profile_photo'      : "/media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
+                    'profile_photo'      : 'media/'+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
                     'content'            : post.content,
                     'like_count'         : post.like_count,
                     'created_at'         : post.created_at,
@@ -392,9 +394,9 @@ class PostDetailView(View):
                                         'content'                    : comment.content,
                                         'comment_user_id'            : comment.user_id.id,
                                         'account'                    : comment.user_id.account,
-                                        'profile_photo'              : "/media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                                        'profile_photo'              : 'media/'+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
                                         'created_at'                 : comment.created_at,
-                                        'like_count'                 : Like.objects.filter(id=comment.id).count(),
+                                        'like_count'                 : Like.objects.filter(comment_id=comment.id).count(),
                                         'is_liked'                   : comment.likes.exists(),
                                         'recomment'                  :[{
                                             'comment_id'                   : comment.id,
@@ -402,17 +404,18 @@ class PostDetailView(View):
                                             'content'                      : recomment.content,
                                             'recomment_user_id'            : recomment.user_id.id,
                                             'account'                      : recomment.user_id.account,
-                                            'profile_photo'                : "/media/"+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
+                                            'profile_photo'                : 'media/'+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
                                             'created_at'                   : recomment.created_at,
-                                            'like_count'                   : Like.objects.filter(comment_id_id=comment.id).count(),
+                                            'like_count'                   : Like.objects.filter(comment_id=comment.id).count(),
                                             'is_liked'                     : comment.likes.exists()
                                         } for recomment in Comment.objects.filter(comment_id=comment.id)]
             } for comment in post.comments.filter(comment_id=None)],
                     'file'              :[{
+                                    'id'             : post_attach_file.id,
                                     'file_type'      : post_attach_file.file_type,
                                     "view_count"     : post_attach_file.view_count,
-                                    'path'           : "/media/"+str(post_attach_file.path),
-                                    'thumbnail_path' : "/media/"+str(post_attach_file.thumbnail_path)
+                                    'path'           : 'media/'+str(post_attach_file.path),
+                                    'thumbnail_path' : str(post_attach_file.thumbnail_path)
                     }for post_attach_file in post.post_attach_files.all()]
             }
             return JsonResponse({'post':post}, status=200)
@@ -420,3 +423,46 @@ class PostDetailView(View):
             return JsonResponse({'message':'VALUE_ERROR'}, status=400)
         except IndexError:
             return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
+
+
+# GoToPost 밑 최근게시물 6개씩 조회
+class GoToPostView(View):
+    def get(self, request, user_id, post_id):
+        try:
+            user = User.objects.get(id = user_id)
+    
+            post_list = [{
+                "post_id"        : post.id,
+                "content"        : post.content,
+                "created_at"     : post.created_at,
+                "like_count"     : post.like_count,
+                "comments_count" : Comment.objects.filter(post_id_id=post.id).count(),
+                "is_multiple"    : False if post.post_attach_files.count()==1 else True,
+                "files" : [{
+                    "id"             : post_attach_file.id, 
+                    "file_type"      : post_attach_file.file_type,
+                    "view_count"     : post_attach_file.view_count,
+                    "thumbnail_path" : str(post_attach_file.thumbnail_path)
+                }for post_attach_file in post.post_attach_files.all()[0:1]],
+            }for post in user.post_set.exclude(id=post_id).order_by('-created_at').prefetch_related('post_attach_files')[0:6]]
+            return JsonResponse({"go_to_post" : post_list}, status=200)
+        except KeyError:
+            return JsonResponse({"message" : "KEY_ERROR"}, status=400)
+
+# 동영상게시물 조회시 view_count 증가
+class Viewcount(View):
+    @login_check
+    def post(self, request, postattachfiles_id):
+        try:
+            post = PostAttachFiles.objects.get(id=postattachfiles_id)
+    
+            if post.file_type=='video':
+                post.view_count += 1
+                post.save()
+                return JsonResponse({'message':'SUCCESS'}, status=201)
+            return JsonResponse({'message':'NOT_VIDEO_FILE'})
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+        
+            
+            

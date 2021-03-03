@@ -112,11 +112,11 @@ class UserProfileView(View):
     def get(self, request):
         user = request.user
         user_profile = {
-            'account'        : user.account,
-            'phone'          : user.phone,
-            'email'          : user.email,
+            'account'         : user.account,
+            'phone'           : user.phone,
+            'email'           : user.email,
             'profile_message' : user.profile_message,
-            'profile_photo'  : "/media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
+            'profile_photo'   : "media/"+ str(user.thumbnail_path) if str(user.thumbnail_path) else None,
         }
         return JsonResponse({'profile' : user_profile}, status = 200)
 
@@ -124,11 +124,11 @@ class UserProfileView(View):
     @login_check
     def post(self, request):
         try:
-            user = request.user
+            user            = request.user
             PASSWORD_LENGTH = 6
             EMAIL_VALIDATOR = re.compile(r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
-            data = json.loads(request.POST['json'])
-            new_password = data.get('new_password')
+            data            = json.loads(request.POST['json'])
+            new_password    = data.get('new_password')
         
             if User.objects.exclude(id=user.id).filter(account=data['new_account']).exists():
                 return JsonResponse({'message' : 'ALREADY_IN_USE_ACCOUNT'}, status=400)
@@ -155,8 +155,8 @@ class UserProfileView(View):
             User.objects.filter(id=user.id).update(profile_message=data['new_profile_message'])
     
             path = request.FILES['profile_photo']
-            user=User.objects.filter(id = user.id)[0]
-            user.profile_photo = path
+            user = User.objects.filter(id=user.id)[0]
+            user.profile_photo  = path
             user.thumbnail_path = path
             user.save()
 
