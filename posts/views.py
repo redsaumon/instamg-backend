@@ -64,7 +64,6 @@ class PostReadView(View):
     def get(self, request):
         try:
             user      = request.user
-            print(user.id)
             following = Follow.objects.filter(follower_user_id=user)
             #이미 읽은 post, story 받아서 조회할 때 이미 읽은 애들 빼기
             post_list = [[{ 
@@ -109,15 +108,12 @@ class PostStoryView(View):
                 } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
                 for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0]
 
-                
-                user_dict = {
+                user_list = [{
                     'user_id'       : request.user.id,
                     'user_account'  : request.user.account,
                     'profile_photo' : "media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
-                }
-
-                story_list.append(user_dict)
-
+                }]
+                story_list.append(user_list)
                 return JsonResponse({'stories':story_list}, status=200)
             
             except KeyError:
@@ -173,27 +169,6 @@ class PostDeleteView(View):
         except Post.DoesNotExist:
             return JsonResponse({"message":'POST_DOES_NOT_EXIST'}, status=400)
 
-# # 게시물 수정
-# class PostUpdateView(View):
-#     @login_check
-#     def post(self, request, post_id):
-#         try:
-#             data          = json.loads(request.body)
-#             post_querySet = Post.objects.filter(id=post_id)
-#             post          = post_querySet[0]
-#             user          = request.user
-#             new_image     = data['image']
-#             image         = post.image_set.all()
-
-#             if post.user.id == user.id:
-#                 image.update(image=new_image)
-#                 return JsonResponse({'message':'게시물 수정 완료'}, status=200)
-#             else:
-#                 return JsonResponse({'message':'권한이 없습니다.'}, status=403)
-                
-#         except Post.DoesNotExist:
-#             return JsonResponse({"message":'해당하는 게시물이 없습니다.'}, status=400)
-        
         
 # 댓글, 대댓글 작성
 class CommentView(View):
@@ -262,9 +237,6 @@ class CommentLikeView(View):
     @login_check
     def post(self, request, comment_id):
         try:
-            print(request)
-            print("댓글좋아용", comment_id)
-
             comment = Comment.objects.get(id=comment_id)
 
             if Like.objects.filter(comment_id=comment.id, user_id=request.user).exists():
@@ -320,8 +292,8 @@ class ProfileView(View):
             login_user    = request.user
             user          = User.objects.get(id = user_id)
             now           = utc.localize(datetime.utcnow())
-            story         = user.story_set.all()
-            created_story = [story.created_at for story in user.story_set.all() if 'days' in str(now - story.created_at)]
+            stories       = user.story_set.all()
+            created_story = [story.created_at for story in stories if 'days' not in str(now - story.created_at)]
             result        = {
                 "id"              : user.id,
                 "account"         : user.account,
@@ -333,7 +305,7 @@ class ProfileView(View):
                 "following_count" : Follow.objects.filter(follower_user_id_id=user).count(),
                 "profile_message" : user.profile_message,
                 "living"          : random.choice([True, False]),
-                "today_live"     : True if len(created_story) > 0  else False #24시간내 스토리 게시헸을 때 True
+                "today_live"      : True if len(created_story) > 0  else False, #24시간내 스토리 게시헸을 때 True
             }
             return JsonResponse({"profile" : result}, status=200)
         except KeyError:
@@ -376,9 +348,12 @@ class PostDetailView(View):
     @login_check
     def get(self, request, post_id): 
         try:
-            login_user = request.user
-            post       = Post.objects.filter(id=post_id).prefetch_related('post_attach_files', 'comments')[0]
-            post       = { 
+            login_user    = request.user
+            post          = Post.objects.filter(id=post_id).prefetch_related('post_attach_files', 'comments')[0]
+            now           = utc.localize(datetime.utcnow())
+            stories       = post.user_id.story_set.all()
+            created_story = [story.created_at for story in stories if 'days' not in str(now - story.created_at)]
+            post          = { 
                     'post_id'            : post.id,  
                     'user_id'            : post.user_id.id,
                     'account'            : post.user_id.account,
@@ -386,13 +361,14 @@ class PostDetailView(View):
                     'content'            : post.content,
                     'like_count'         : post.like_count,
                     'created_at'         : post.created_at,
-                    'today_live'         : random.choice([True, False]),
+                    'today_live'         : True if len(created_story) > 0  else False,
                     'isowner_following'  : Follow.objects.filter(followed_user_id_id=post.user_id.id, follower_user_id=login_user).exists(),
                     'is_liked'           : Like.objects.filter(user_id_id=login_user, post_id=post.id).exists(),
+                    'login_user_account' : login_user.account,
                     'comments'           : [{
                                         'comment_id'                 : comment.id,
                                         'content'                    : comment.content,
-                                        'comment_user_id'            : comment.user_id.id,
+                                        'user_id'                    : comment.user_id.id,
                                         'account'                    : comment.user_id.account,
                                         'profile_photo'              : 'media/'+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
                                         'created_at'                 : comment.created_at,
@@ -402,12 +378,12 @@ class PostDetailView(View):
                                             'comment_id'                   : comment.id,
                                             'recomment_id'                 : recomment.id,
                                             'content'                      : recomment.content,
-                                            'recomment_user_id'            : recomment.user_id.id,
+                                            'user_id'                      : recomment.user_id.id,
                                             'account'                      : recomment.user_id.account,
                                             'profile_photo'                : 'media/'+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
                                             'created_at'                   : recomment.created_at,
                                             'like_count'                   : Like.objects.filter(comment_id=comment.id).count(),
-                                            'is_liked'                     : comment.likes.exists()
+                                            'is_liked'                     : recomment.likes.exists()
                                         } for recomment in Comment.objects.filter(comment_id=comment.id)]
             } for comment in post.comments.filter(comment_id=None)],
                     'file'              :[{
@@ -449,6 +425,7 @@ class GoToPostView(View):
         except KeyError:
             return JsonResponse({"message" : "KEY_ERROR"}, status=400)
 
+
 # 동영상게시물 조회시 view_count 증가
 class Viewcount(View):
     @login_check
@@ -462,7 +439,4 @@ class Viewcount(View):
                 return JsonResponse({'message':'SUCCESS'}, status=201)
             return JsonResponse({'message':'NOT_VIDEO_FILE'})
         except KeyError:
-            return JsonResponse({'message':'KEY_ERROR'}, status=400)
-        
-            
-            
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)        

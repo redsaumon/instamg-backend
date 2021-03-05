@@ -1,8 +1,9 @@
 from django.urls import path
 
-from . import views
+from .           import views
+from .views      import DirectMessageView, DirectMessageSearchView
 
 urlpatterns = [
-    path('', views.index, name='index'),
-    path('/<str:room_name>/', views.room, name='room'),
+    path('', DirectMessageView.as_view()),
+    path('/search', DirectMessageSearchView.as_view()),
 ]

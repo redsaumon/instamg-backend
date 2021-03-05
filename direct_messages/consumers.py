@@ -29,17 +29,26 @@ class ChatConsumer(WebsocketConsumer):
 
     # Receive message from WebSocket
     def receive(self, text_data):
-        data = json.loads(text_data)
-        # if not Room.objects.filter(name=data['room_name']).exists():
-        # Room.objects.create(
-        #     name = data['room_name']
-        # )
+        data         = json.loads(text_data)
+        user_account = data['user_account']
+        room_name    = data['room_name']
+        rooms        = Room.objects.filter(name__contains=user_account)
+
+        if len(rooms) > 0:
+            talked_user = room_name.split(user_account)[-1]
+            for room in rooms:
+                if talked_user in room.name and user_account in room.name:
+                    room_name = room.name
+
+        if not Room.objects.filter(name=room_name).exists():
+            Room.objects.create(
+                name = room_name
+            )
         direct_message = DirectMessage.objects.create(
-            room_id = Room.objects.get(id=1),#Room.objects.get(name=data['room_name']),
-            user_id = User.objects.get(id=2), # decorator 달아서 request.user로 받기
+            room_id = Room.objects.get(name=room_name),
+            user_id = User.objects.get(account=user_account),
             message = data['message']
         )
-        print(data)
         message = data['message']
 
         # Send message to room group

@@ -80,14 +80,14 @@ class StoryListView(View):
             login_user = request.user
             following  = Follow.objects.filter(follower_user_id=login_user.id)
             now        = utc.localize(datetime.utcnow())
-            
-            user = [{
+            user       = [{
                     'user_id'       : request.user.id,
                     'user_account'  : request.user.account,
                     'profile_photo' : 'media/'+str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None,
             }]
             story_list = [[{
                     'story_id'     : story.id,
+                    'story_title'  : story.title,
                     'created_at'   : story.created_at,
                     'user_id'      : story.user_id.id,
                     'user_account' : story.user_id.account,
@@ -97,7 +97,7 @@ class StoryListView(View):
                         'path'           : 'media/'+str(story_file.path),
                         'thumbnail_path' : str(story_file.thumbnail_path),
                     }for story_file in story.story_attach_files.all()]
-                    } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
+                    } for story in Story.objects.exclude(story_profile=1).filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
                     for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0] 
 
             return JsonResponse({'story_list' : story_list, 'user' : user}, status=200)

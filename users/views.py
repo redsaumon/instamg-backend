@@ -7,7 +7,7 @@ from decorators   import login_check
 from django.http  import JsonResponse
 from django.views import View
 
-from my_settings  import SECRET
+from my_settings  import SECRET,PASSWORD_LENGTH, EMAIL_VALIDATOR, ALGORITHM
 from .models      import User, Follow
 
 # 회원가입
@@ -23,7 +23,7 @@ class SignUpView(View):
             if User.objects.filter(account=data['account']).exists():
                 return JsonResponse({'message': 'ACCOUNT_ALREADY_EXIST'}, status=400)
 
-            if len(password) < 8:
+            if len(password) < PASSWORD_LENGTH:
                 return JsonResponse({'message': 'MINIMUM_PASSWORD_LENGTH_IS_8'}, status=400)
 
             if email is not None: 
@@ -53,7 +53,7 @@ class SignInView(View):
                 user           = User.objects.get(email=data["email"])
                 password_check = user.password
                 if bcrypt.checkpw(password.encode('utf-8'), password_check.encode('utf-8')):
-                    token = jwt.encode({'id': user.id}, SECRET, algorithm='HS256')
+                    token = jwt.encode({'id': user.id}, SECRET, ALGORITHM)
                     return JsonResponse({'token':token}, status=200)
                 else:
                      return JsonResponse({'message':'INVALID_PASSWORD'}, status=401)
@@ -63,7 +63,7 @@ class SignInView(View):
                 user           = User.objects.get(account=data["account"])
                 password_check = user.password
                 if bcrypt.checkpw(password.encode('utf-8'), password_check.encode('utf-8')):
-                    token = jwt.encode({'id': user.id}, SECRET, algorithm='HS256')
+                    token = jwt.encode({'id': user.id}, SECRET, ALGORITHM)
                     return JsonResponse({'token':token}, status=200)
                 else:
                      return JsonResponse({'message':'INVALID_PASSWORD'}, status=401)
@@ -73,7 +73,7 @@ class SignInView(View):
                 user           = User.objects.get(phone=data["phone"])
                 password_check = user.password
                 if bcrypt.checkpw(password.encode('utf-8'), password_check.encode('utf-8')):
-                    token = jwt.encode({'id': user.id}, SECRET, algorithm='HS256')
+                    token = jwt.encode({'id': user.id}, SECRET, ALGORITHM)
                     return JsonResponse({'token':token}, status=200)
                 else:
                      return JsonResponse({'message':'INVALID_PASSWORD'}, status=401)
@@ -124,13 +124,9 @@ class UserProfileView(View):
     @login_check
     def post(self, request):
         try:
-            print(request)
             user            = request.user
-            PASSWORD_LENGTH = 6
-            EMAIL_VALIDATOR = re.compile(r"[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?")
             data            = json.loads(request.POST['json'])
             new_password    = data.get('new_password')
-            print("데이터", data)
         
             if User.objects.exclude(id=user.id).filter(account=data['new_account']).exists():
                 return JsonResponse({'message' : 'ALREADY_IN_USE_ACCOUNT'}, status=400)
@@ -146,7 +142,7 @@ class UserProfileView(View):
                 return JsonResponse({'message' : 'ALREADY_IN_USE_PHONE'}, status=400)
             User.objects.filter(id=user.id).update(phone=data['new_phone'])
             
-            if data.get('new_password'):
+            if new_password:
                 if len(new_password) < PASSWORD_LENGTH:
                     return JsonResponse({'message' : 'INVALID_PASSWORD'}, status=400)
                 if not bcrypt.checkpw(data['password'].encode('utf-8'), user.password.encode('utf-8')):
@@ -165,9 +161,7 @@ class UserProfileView(View):
 
             return JsonResponse({'message' : 'CHANGE_COMPLETE'}, status=200)
      
-        # except KeyError:
-        #     return JsonResponse({'message' : 'KEY_ERROR'}, status=400, safe=False)
+        except KeyError:
+            return JsonResponse({'message' : 'KEY_ERROR'}, status=400, safe=False)
         except ValueError:
             return JsonResponse({'message' : 'VALUE_ERROR'}, status=400, safe=False)
-
-
