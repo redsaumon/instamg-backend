@@ -99,12 +99,7 @@ class StoryListView(View):
                     }for story_file in story.story_attach_files.all()]
                     } for story in Story.objects.exclude(story_profile=1).filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
                     for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0] 
-
             return JsonResponse({'story_list' : story_list, 'user' : user}, status=200)
 
         except KeyError:
             return sonResponse({'message' : 'KEY_ERROR'}, status=400)
-    
-
-
-
