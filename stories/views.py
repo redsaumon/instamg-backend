@@ -63,7 +63,7 @@ class ProfileStoryView(View):
                         stories.append({
                             "story_id"       : story.id,
                             "title"          : story.title,
-                            "created_at"     : story.created_at,
+                            "created_at"     : story.created_at.astimezone(timezone('Asia/Seoul')),
                             "thumbnail_path" : str(files.thumbnail_path),
                             "path"           : "media/"+str(files.path),
                             "file_type"      : files.file_type

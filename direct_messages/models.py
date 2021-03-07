@@ -16,12 +16,6 @@ class DirectMessage(models.Model):
     created_at  = models.DateTimeField(auto_now_add=True)
     is_read     = models.BooleanField(default=0)
 
-    def __str__(self):
-        return self.user_id.account
-
-    def last_10_messages(self):
-        return DirectMessage.objects.order_by('-timestamp').all()[:10]
-
     class Meta:
         db_table = 'direct_messages'
 
