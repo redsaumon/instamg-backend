@@ -1,5 +1,6 @@
 import json
-from channels.generic.websocket import AsyncWebsocketConsumer, WebsocketConsumer
+
+from channels.generic.websocket import WebsocketConsumer
 from asgiref.sync               import async_to_sync
 
 from direct_messages.models     import DirectMessage, DirectMessageAttachFiles, Room
@@ -34,8 +35,9 @@ class ChatConsumer(WebsocketConsumer):
         room_name    = data['room_name']
         rooms        = Room.objects.filter(name__contains=user_account)
 
+        # account가 거꾸로 들어올 겅우 잘 연결 되는지 확인
         if len(rooms) > 0:
-            talked_user = room_name.split(user_account)[-1]
+            talked_user = sorted(room_name.split(user_account))[-1]
             for room in rooms:
                 if talked_user in room.name and user_account in room.name:
                     room_name = room.name
