@@ -5,8 +5,12 @@ import time
 
 from pytz              import utc, timezone
 from django.views      import View
+<<<<<<< HEAD
 from django.http       import JsonResponse
 from django.http       import StreamingHttpResponse
+=======
+from django.http       import JsonResponse, StreamingHttpResponse
+>>>>>>> ad59381... Add: DM2
 from django.db         import transaction
 from datetime          import datetime
 
@@ -14,6 +18,7 @@ from decorators        import login_check
 from users.models      import User, Follow
 from .models           import Post, PostAttachFiles, Comment, Like, PostRead
 from stories.models    import Story, StoryAttachFiles, StoryRead
+
 
 class PostView(View):
     @login_check
@@ -70,7 +75,6 @@ class PostReadView(View):
             user      = request.user
             posts     = Post.objects.filter(user_id=user)
             following = Follow.objects.filter(follower_user_id=user)
-            #이미 읽은 post, story 받아서 조회할 때 이미 읽은 애들 빼기
             post_list = [[{ 
                     'post_id'        : post.id,
                     'user_id'        : post.user_id.id,
@@ -114,7 +118,7 @@ class PostReadView(View):
             return JsonResponse({'message':'VALUE_ERROR'}, status=400)
         except IndexError:
             return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
-
+            
                         
 # 게시물 스토리
 class PostStoryView(View):
@@ -192,7 +196,6 @@ class PostDeleteView(View):
                 return JsonResponse({'message':'NO_PERMISSION'}, status=403)
         except Post.DoesNotExist:
             return JsonResponse({"message":'POST_DOES_NOT_EXIST'}, status=400)
-
         
 # 댓글, 대댓글 작성
 class CommentView(View):
@@ -292,7 +295,7 @@ class PostLikeView(View):
                 like.delete()
                 post.like_count -= 1
                 post.save()
-                return JsonResponse({'message':'SUCCESS'}, status=200)
+                return JsonResponse({'message':'UNLIKE_SUCCESS'}, status=200)
 
             Like.objects.create(
                 post_id = post,
@@ -300,7 +303,7 @@ class PostLikeView(View):
             )
             post.like_count += 1
             post.save()
-            return JsonResponse({'message':'SUCCESS'}, status=201)
+            return JsonResponse({'message':'LIKE_SUCCESS'}, status=201)
 
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
