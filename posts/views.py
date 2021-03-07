@@ -5,12 +5,7 @@ import time
 
 from pytz              import utc, timezone
 from django.views      import View
-<<<<<<< HEAD
-from django.http       import JsonResponse
-from django.http       import StreamingHttpResponse
-=======
 from django.http       import JsonResponse, StreamingHttpResponse
->>>>>>> ad59381... Add: DM2
 from django.db         import transaction
 from datetime          import datetime
 
@@ -173,7 +168,7 @@ class PostCommentView(View):
                                         'is_liked'                     : comment.likes.exists()
 
                 } for recomment in Comment.objects.filter(comment_id=comment.id)]
-            } for comment in post.comments.all()]
+            } for comment in post.comments.all() if comment.comment_id is None]
             return JsonResponse({'comment':comments_list}, status=200)
 
         except KeyError:
@@ -251,7 +246,7 @@ class CommentModifyView(View):
                 created_at = datetime.now()
             )
 
-            return JsonResponse({'message':'SUCCES'}, status=201)
+            return JsonResponse({'message':'SUCCESS'}, status=201)
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
             

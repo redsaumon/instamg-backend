@@ -10,8 +10,8 @@ class Room(models.Model):
         db_table = 'rooms'
 
 class DirectMessage(models.Model):
-    room_id     = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='rooms')
-    user_id     = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='users')
+    room_id     = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='direct_messages')
+    user_id     = models.ForeignKey('users.User', on_delete=models.CASCADE, related_name='direct_messages')
     message     = models.CharField(max_length=2000)
     created_at  = models.DateTimeField(auto_now_add=True)
     is_read     = models.BooleanField(default=0)

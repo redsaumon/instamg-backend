@@ -77,8 +77,4 @@ class DirectMessageRecordView(View):
                 else:
                     user_list[-1].append(message_list[i])
  
-<<<<<<< HEAD
             return JsonResponse({'message_list':user_list}, status=200)
-=======
-            return JsonResponse({'message_list':user_list}, status=200)
->>>>>>> ad59381... Add: DM2
