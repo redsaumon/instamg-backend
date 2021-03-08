@@ -9,6 +9,7 @@ from django.views      import View
 from django.http       import JsonResponse, StreamingHttpResponse, HttpResponse
 from django.db         import transaction
 from datetime          import datetime
+from django.db.models  import Q
 
 from decorators        import login_check
 from users.models      import User, Follow
@@ -158,7 +159,6 @@ class PostCommentView(View):
                                         'recomment_user_profile_photo' : "media/"+ str(recomment.user_id.thumbnail_path) if str(recomment.user_id.thumbnail_path) else None,
                                         'created_at'                   : recomment.created_at,
                                         'is_liked'                     : comment.likes.exists()
-
                 } for recomment in Comment.objects.filter(comment_id=comment.id)]
             } for comment in post.comments.all() if comment.comment_id is None]
             return JsonResponse({'comment':comments_list}, status=200)

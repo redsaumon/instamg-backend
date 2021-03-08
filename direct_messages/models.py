@@ -26,7 +26,7 @@ class DirectMessageAttachFiles(models.Model):
     path              = models.ImageField(upload_to='files/%Y%m%d')
     thumbnail_path    = ProcessedImageField(
         upload_to='thumbnail',
-        processors=[ResizeToFit(width=614, upscale=False)],
+        processors=[ResizeToFit(width=200, upscale=False)],
         options={'quality': 100}
     )
 

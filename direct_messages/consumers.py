@@ -49,8 +49,8 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     # Receive message from room group
     async def chat_message(self, event):
-        message      = event['message']
-        user_account = event['user_account']
+        message         = event['message']
+        user_account    = event['user_account']
         self.created_at = await self.get_created_at()
 
         # Send message to WebSocket
