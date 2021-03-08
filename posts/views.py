@@ -3,9 +3,10 @@ import random
 import subprocess
 import time
 
+from django.db.models  import Q
 from pytz              import utc, timezone
 from django.views      import View
-from django.http       import JsonResponse, StreamingHttpResponse
+from django.http       import JsonResponse, StreamingHttpResponse, HttpResponse
 from django.db         import transaction
 from datetime          import datetime
 
@@ -20,8 +21,6 @@ class PostView(View):
     @transaction.atomic
     def post(self, request):
         try:
-            
-            print(request.FILES.getlist('path'))
             data  = json.loads(request.POST['json'])
             user  = request.user
             video = ['m4v', 'avi','mpg','mp4', 'webm', 'MOV']
@@ -49,7 +48,7 @@ class PostView(View):
                 video_path     = 'media/'+post_file
                 thumbnail_path = 'media/thumbnail/'+post_file.split('/')[-1]
 
-                subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
+                subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', '-y', thumbnail_path])
                 
                 post_file = PostAttachFiles.objects.last()
                 post_file.thumbnail_path = thumbnail_path
@@ -67,10 +66,14 @@ class PostReadView(View):
     @login_check
     def get(self, request):
         try:
-            user      = request.user
-            posts     = Post.objects.filter(user_id=user)
-            following = Follow.objects.filter(follower_user_id=user)
-            post_list = [[{ 
+            page           = int(request.GET.get("page", 1))
+            PAGE_SIZE      = 10
+            limit          = page * PAGE_SIZE
+            offset         = limit - PAGE_SIZE
+            user           = request.user
+            following_list = [following.followed_user_id for following in Follow.objects.filter(follower_user_id=user)]
+            posts          = Post.objects.filter(Q(user_id=user)|Q(user_id__in=following_list)).order_by('-created_at').prefetch_related('post_attach_files','likes')[offset:limit]
+            post_list = [{ 
                     'post_id'        : post.id,
                     'user_id'        : post.user_id.id,
                     'user_account'   : post.user_id.account,
@@ -79,35 +82,24 @@ class PostReadView(View):
                     'like_count'     : post.like_count,
                     'is_liked'       : post.likes.filter(user_id=user, comment_id=None).exists(),
                     'total_comments' : post.comments.all().count(),
+                    'comments'       : [{
+                        'post_id'                    : comment.post_id.id,
+                        'comment_id'                 : comment.id,
+                        'content'                    : comment.content,
+                        'comment_user_id'            : comment.user_id.id,
+                        'comment_user_account'       : comment.user_id.account,
+                        'comment_user_profile_photo' : "media/"+ str(comment.user_id.thumbnail_path) if str(comment.user_id.thumbnail_path) else None,
+                        'created_at'                 : comment.created_at,
+                        'is_liked'                   : comment.likes.exists()
+                        }for comment in post.comments.all()[:2]],
                     'created_at'     : post.created_at,
-                    'file'           :[{
+                    'file'           : [{
                                         'id'             : post_attach_file.id,
                                         'file_type'      : post_attach_file.file_type,
                                         'path'           : "media/"+str(post_attach_file.path),
                                         'thumbnail_path' : str(post_attach_file.thumbnail_path)
                                         }for post_attach_file in post.post_attach_files.all()]
-                } for post in Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files','likes')]
-            for follow in following if len(Post.objects.filter(user_id=follow.followed_user_id).prefetch_related('post_attach_files')) > 0]
-
-            user_list = [{
-                'post_id'        : post.id,
-                'user_id'        : post.user_id.id,
-                'content'        : post.content,
-                'user_account'   : post.user_id.account,
-                'profile_photo'  : "media/"+ str(post.user_id.thumbnail_path) if str(post.user_id.thumbnail_path) else None,
-                'like_count'     : post.like_count,
-                'is_liked'       : post.likes.filter(user_id=user, comment_id=None).exists(),
-                'total_comments' : post.comments.all().count(),
-                'created_at'     : post.created_at,
-                'file'               : [{
-                    'id'             : post_attach_file.id,
-                    'file_type'      : post_attach_file.file_type,
-                    'path'           : "media/"+str(post_attach_file.path),
-                    'thumbnail_path' : str(post_attach_file.thumbnail_path)
-                }for post_attach_file in post.post_attach_files.all()]
-            }for post in posts.prefetch_related('post_attach_files','likes')]
-            post_list.append(user_list)
-
+                } for post in posts]
             return JsonResponse({'feed':post_list}, status=200)
         except ValueError:
             return JsonResponse({'message':'VALUE_ERROR'}, status=400)
@@ -143,7 +135,7 @@ class PostStoryView(View):
                 return JsonResponse({'message':'KEY_ERROR'}, status=400)
 
 
-# 댓글, 대댓글 조회
+# 댓글, 대댓글 조회 #게시물 전체조회에 추가됨
 class PostCommentView(View):
     @login_check
     def get(self, request, post_id):
@@ -191,7 +183,8 @@ class PostDeleteView(View):
                 return JsonResponse({'message':'NO_PERMISSION'}, status=403)
         except Post.DoesNotExist:
             return JsonResponse({"message":'POST_DOES_NOT_EXIST'}, status=400)
-        
+
+
 # 댓글, 대댓글 작성
 class CommentView(View):
     @login_check
@@ -211,8 +204,15 @@ class CommentView(View):
                 comment_id = comment_id
             ).save()
 
-            return JsonResponse({'message':'SUCCESS'}, status=201)
-
+            comment_last = Comment.objects.last()
+            comment_data = {
+                'comment_id'      : comment_last.id,
+                'post_id'         : comment_last.post_id.id,
+                'comment_content' : data['content'],
+                'user_account'    : request.user.account,
+                'user_profile'    : "media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None
+            }
+            return HttpResponse(json.dumps({'message': 'SUCCESS', 'comment_data': comment_data}), status=201)
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
         except Post.DoesNotExist :
@@ -226,9 +226,16 @@ class CommentDeleteView(View):
         try:
             comment = Comment.objects.get(id=comment_id)
 
+            comment_data = {
+                'comment_id' : comment.id,
+                'post_id' : comment.post_id.id,
+                'comment_content' : comment.content,
+                'user_account' : request.user.account,
+                'user_profile' : "media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None
+            }
             if comment.user_id.id == request.user.id:
                 comment.delete()
-                return JsonResponse({'message':'SUCCESS'}, status=200)
+                return HttpResponse(json.dumps({'message': 'SUCCESS', 'comment_data': comment_data}), status=200)
             return JsonResponse({'message':'NO_PERMISSION'}, status=403)
         except Comment.DoesNotExist:
             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST.'}, status=400)
@@ -274,7 +281,7 @@ class CommentLikeView(View):
 
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
-        except Commentt.DoesNotExist :
+        except Comment.DoesNotExist :
             return JsonResponse({'message':'COMMENT_DOES_NOT_EXIST'}, status=400)
 
 
@@ -359,7 +366,7 @@ class ProfileFeedView(View):
                         "view_count"     : post_attach_file.view_count,
                         "thumbnail_path" : str(post_attach_file.thumbnail_path)
                     }for post_attach_file in post.post_attach_files.all()],
-                }for post in user.post_set.all().order_by('-created_at').prefetch_related('post_attach_files')[offset:limit]]
+                }for post in user.post_set.all().order_by('-created_at').prefetch_related('post_attach_files')][offset:limit]
             return JsonResponse({"post_list" : post_list}, status = 200)
         except KeyError:
             return JsonResponse({"message" : "KEY_ERROR"}, status=400)
@@ -441,7 +448,7 @@ class GoToPostView(View):
                     "file_type"      : post_attach_file.file_type,
                     "view_count"     : post_attach_file.view_count,
                     "thumbnail_path" : str(post_attach_file.thumbnail_path)
-                }for post_attach_file in post.post_attach_files.all()[0:1]],
+                }for post_attach_file in post.post_attach_files.all()[:1]],
             }for post in user.post_set.exclude(id=post_id).order_by('-created_at').prefetch_related('post_attach_files')[0:6]]
             return JsonResponse({"go_to_post" : post_list}, status=200)
         except KeyError:

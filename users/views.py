@@ -7,8 +7,10 @@ from decorators   import login_check
 from django.http  import JsonResponse
 from django.views import View
 
-from my_settings  import SECRET,PASSWORD_LENGTH, EMAIL_VALIDATOR, ALGORITHM
-from .models      import User, Follow
+from my_settings            import SECRET,PASSWORD_LENGTH, EMAIL_VALIDATOR, ALGORITHM
+from .models                import User, Follow
+from direct_messages.models import Room
+
 
 # 회원가입
 class SignUpView(View):
@@ -40,6 +42,7 @@ class SignUpView(View):
             return JsonResponse({'message': 'SUCCESS'}, status=201)
         except KeyError:
             return JsonResponse({''})
+
 
 # 로그인
 class SignInView(View):
@@ -82,6 +85,7 @@ class SignInView(View):
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
         except User.DoesNotExist:
             return JsonResponse({'message':'USER_DOES_NOT_EXIST'}, status=400)
+
 
 # follow하기
 class FollowView(View):
@@ -131,7 +135,11 @@ class UserProfileView(View):
             if User.objects.exclude(id=user.id).filter(account=data['new_account']).exists():
                 return JsonResponse({'message' : 'ALREADY_IN_USE_ACCOUNT'}, status=400)
             User.objects.filter(id=user.id).update(account=data['new_account'])
-    
+            if Room.objects.filter(name__contains=user.account).exists():
+                rooms = Room.objects.filter(name__contains=user.account)
+                for room in rooms:
+                    Room.objects.filter(id=room.id).update(name=room.name.replace(user.account, data['new_account']))
+
             if User.objects.exclude(id=user.id).filter(email=data['new_email']).exists():
                 return JsonResponse({'message' : 'ALREADY_IN_USE_EMAIL'}, status=400)
             if not EMAIL_VALIDATOR.match(data['new_email']):

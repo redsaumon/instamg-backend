@@ -1,7 +1,7 @@
 import json
 import subprocess
 
-from pytz         import utc
+from pytz         import utc, timezone
 from django.views import View
 from django.http  import JsonResponse
 from django.db    import transaction
@@ -10,6 +10,7 @@ from datetime     import datetime
 from users.models import User, Follow
 from .models      import Story, StoryAttachFiles
 from decorators   import login_check
+
 
 class StoryView(View):
     @login_check
@@ -27,7 +28,7 @@ class StoryView(View):
 
             Story(
                 user_id = request.user,
-                title   = data.get('title')
+                title   = data.get('title'),
             ).save()
 
             StoryAttachFiles(
@@ -41,7 +42,7 @@ class StoryView(View):
             video_path     = 'media/'+story_file
             thumbnail_path = 'media/thumbnail/'+story_file.split('/')[-1]
 
-            subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', thumbnail_path])
+            subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', '-y', thumbnail_path])
             
             story_file = StoryAttachFiles.objects.last()
             story_file.thumbnail_path = thumbnail_path
@@ -51,11 +52,13 @@ class StoryView(View):
         except ValueError:
             return JsonResponse({'message':'VALUE_ERROR'}, status=400)
 
+
 # 개인프로필에 저장한 스토리보기
 class ProfileStoryView(View):
     def get(self, request, user_id):
         try:
             user    = User.objects.get(id = user_id)
+            now     = utc.localize(datetime.utcnow())
             stories = []
             for story in user.story_set.all():
                 if story.story_profile==1:
@@ -71,6 +74,7 @@ class ProfileStoryView(View):
             return JsonResponse({"profile_story" : stories}, status=200)
         except KeyError:
             return JsonResponse({"message" : "KEY_ERROR"}, status=400)
+
 
 # 메인리스트에서 스토리 조회
 class StoryListView(View):
