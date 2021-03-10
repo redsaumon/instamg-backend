@@ -3,7 +3,7 @@ from django.http       import JsonResponse
 
 from decorators        import login_check
 from .models           import DirectMessage, Room
-from users.models      import Follow,User
+from users.models      import Follow, User
 
 
 class DirectMessageView(View):
@@ -16,10 +16,11 @@ class DirectMessageView(View):
 
             user_list = {
                 'user_account' : login_user,
-                 'talked_user' :[{
-                     'talked_user_account': user.account,
-                     'profile_photo'      : str(user.thumbnail_path) if str(user.thumbnail_path) else None
-                 } for user in talked_user_list]}
+                'talked_user'  :[{
+                     'talked_user_account': talked_user_list[i].account,
+                     'profile_photo'      : "media/"+str(talked_user_list[i].thumbnail_path) if str(talked_user_list[i].thumbnail_path) else None,
+                     'room_name'          : room_names[i].name 
+                 } for i in range(len(talked_user_list))]}
 
             return JsonResponse({'user_list':user_list}, status=200)
         except ValueError:
@@ -35,7 +36,7 @@ class DirectMessageSearchView(View):
 
             following_list = [{
                 'user_account' : following.followed_user_id.account,
-                'profil_phofo' : str(following.followed_user_id.thumbnail_path) if str(following.followed_user_id.thumbnail_path) else None
+                'profile_photo' : "media/"+str(following.followed_user_id.thumbnail_path) if str(following.followed_user_id.thumbnail_path) else None
             } for following in followings]
 
             return JsonResponse({'following':following_list}, status=200)
@@ -46,35 +47,13 @@ class DirectMessageSearchView(View):
 class DirectMessageRecordView(View):
     @login_check
     def get(self, request, room_name):
-        if not Room.objects.filter(name=room_name).exists():
-            user_account        = request.user.account
-            talked_user_account = sorted(room_name.split(user_account))[-1]
-            rooms = []
-            rooms.append(user_account+talked_user_account)
-            rooms.append(talked_user_account+user_account)
-
-            if  len(Room.objects.filter(name__in=rooms)) > 0:
-                room_name = Room.objects.filter(name__in=rooms)[0].name
-            else:
-                return JsonResponse({'message':'MESSAGE_DOES_NOT_EXIST'}, status=200)
-
         if Room.objects.filter(name=room_name).exists():
-            room      = Room.objects.filter(name=room_name).prefetch_related('direct_messages')[0]
-            user1     = request.user.account
-            user_list = []
-            user_list.insert(0,[])
-            user_list.insert(1,[])
+            room = Room.objects.filter(name=room_name).prefetch_related('direct_messages')[0]
 
             message_list = [{
                 'message'      : data.message,
                 'created_at'   : data.created_at,
                 'user_account' : data.user_id.account
             } for data in room.direct_messages.all()]
-
-            for i in range(len(message_list)):
-                if message_list[i]['user_account'] == user1:
-                    user_list[0].append(message_list[i])
-                else:
-                    user_list[-1].append(message_list[i])
- 
-            return JsonResponse({'message_list':user_list}, status=200)
+            return JsonResponse({'message_list':message_list}, status=200)
+        return JsonResponse({'message':'MESSAGE_DOES_NOT_EXIST'}, status=200)
