@@ -3,10 +3,10 @@ import jwt
 import json
 import bcrypt
 
-from decorators   import login_check
-from django.http  import JsonResponse
-from django.views import View
-
+from decorators             import login_check
+from django.http            import JsonResponse
+from django.views           import View
+            
 from my_settings            import SECRET,PASSWORD_LENGTH, EMAIL_VALIDATOR, ALGORITHM
 from .models                import User, Follow
 from direct_messages.models import Room
