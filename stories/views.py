@@ -57,7 +57,7 @@ class StoryView(View):
 class ProfileStoryView(View):
     def get(self, request, user_id):
         try:
-            user    = User.objects.get(id = user_id)
+            user    = User.objects.get(id=user_id)
             now     = utc.localize(datetime.utcnow())
             stories = []
             for story in user.story_set.all():
@@ -92,7 +92,7 @@ class StoryListView(View):
             story_list = [[{
                     'story_id'     : story.id,
                     'story_title'  : story.title,
-                    'created_at'   : story.created_at,
+                    'created_at'   : story.created_at.astimezone(timezone('Asia/Seoul')),
                     'user_id'      : story.user_id.id,
                     'user_account' : story.user_id.account,
                     'profile_photo': 'media/'+str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,

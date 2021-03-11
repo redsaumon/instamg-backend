@@ -9,7 +9,6 @@ from django.views      import View
 from django.http       import JsonResponse, StreamingHttpResponse, HttpResponse
 from django.db         import transaction
 from datetime          import datetime
-from django.db.models  import Q
 
 from decorators        import login_check
 from users.models      import User, Follow
@@ -93,7 +92,7 @@ class PostReadView(View):
                         'created_at'                 : comment.created_at,
                         'is_liked'                   : comment.likes.exists()
                         }for comment in post.comments.all()[:2]],
-                    'created_at'     : post.created_at,
+                    'created_at'     : post.created_at.astimezone(timezone('Asia/Seoul')),
                     'file'           : [{
                                         'id'             : post_attach_file.id,
                                         'file_type'      : post_attach_file.file_type,
@@ -118,11 +117,12 @@ class PostStoryView(View):
 
                 story_list = [[{
                 'story_id'     : story.id,
+                'created_at'   : story.created_at,
                 'user_id'      : story.user_id.id,
                 'user_account' : story.user_id.account,
                 'profile_photo': "media/"+ str(story.user_id.thumbnail_path) if str(story.user_id.thumbnail_path) else None,
                 } for story in Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files') if 'days' not in str(now - story.created_at)]
-                for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0]
+                for follow in following if len(Story.objects.filter(user_id=follow.followed_user_id).prefetch_related('story_attach_files')) > 0 ]
 
                 user_list = [{
                     'user_id'       : request.user.id,
@@ -165,6 +165,49 @@ class PostCommentView(View):
 
         except KeyError:
             return JsonResponse({'message':'KEY_ERROR'}, status=400)
+
+
+# 게시물 수정
+class PostModifyView(View):
+    @login_check
+    def post(self, request, post_id):
+        try:
+            data             = json.loads(request.POST['json'])
+            post             = Post.objects.filter(id=post_id).prefetch_related('post_attach_files')
+            post_attach_file = post[0].post_attach_files.all()
+            video            = ['m4v', 'avi','mpg','mp4', 'webm', 'MOV']
+            image            = ['jpg', 'gif', 'bmp', 'png', 'jpeg']
+
+            post.update(
+                content    = data['content'],
+                created_at = datetime.now()
+            )
+                    
+            for i in range(len(request.FILES.getlist('path'))):
+                if str(request.FILES.getlist('path')[i]).split('.')[-1] in video:
+                    file_type = "video"
+                else:
+                    file_type = "image"
+
+                post_attach_file[i].file_type = file_type
+                post_attach_file[i].path = request.FILES.getlist('path')[i]
+                post_attach_file[i].save()
+
+                if file_type == 'image':
+                    post_attach_file[i].thumbnail_path = request.FILES.getlist('path')[i]
+                else:
+                    video_path     = 'media/'+str(post_attach_file[i].path)
+                    thumbnail_path = 'media/thumbnail/'+str(post_attach_file[i].path).split('/')[-1]
+
+                    subprocess.call(['ffmpeg', '-i', video_path, '-ss', '00:00:00.000', '-vframes', '1', '-y', thumbnail_path])
+                    post_attach_file[i].thumbnail_path = 'media/thumbnail/' + str(post_attach_file[i].path).split('/')[-1]
+                post_attach_file[i].save()
+
+            return JsonResponse({'message':'SUCCESS'}, status=200)
+        except KeyError:
+            return JsonResponse({'message':'KEY_ERROR'}, status=400)
+        except Post.DoesNotExist:
+            return JsonResponse({'message':'POST_DOES_NOT_EXIST'}, status=400)
 
 
 # 게시물 삭제
@@ -227,11 +270,11 @@ class CommentDeleteView(View):
             comment = Comment.objects.get(id=comment_id)
 
             comment_data = {
-                'comment_id' : comment.id,
-                'post_id' : comment.post_id.id,
+                'comment_id'      : comment.id,
+                'post_id'         : comment.post_id.id,
                 'comment_content' : comment.content,
-                'user_account' : request.user.account,
-                'user_profile' : "media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None
+                'user_account'    : request.user.account,
+                'user_profile'    : "media/"+ str(request.user.thumbnail_path) if str(request.user.thumbnail_path) else None
             }
             if comment.user_id.id == request.user.id:
                 comment.delete()
