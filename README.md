@@ -18,7 +18,7 @@
 
 - JWT, Bcrpyt
 
-- django-channels
+- WebSocket (django-channels)
 
 - django-media file
 
@@ -31,8 +31,8 @@
 - 유저 프로필 조회, 수정
 - 팔로우/언팔로우 하기
 - 좋아요 하기
-- 게시물 작성, 삭제
-- 댓글 작성, 삭제
+- 게시물  file resizig(ProcessedImageField), thumbnail생성(ffmpeg), 삭제
+- 댓글 작성, 수정, 삭제
 - 영상 게시물 조회수 count
 - 스토리 업로드
 - Direct Message
